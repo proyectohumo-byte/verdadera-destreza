@@ -1,5 +1,5 @@
-// Guarda el juego en el móvil para jugar sin conexión. Versión 20261111112649.
-const CACHE = 'destreza-20261111112649';
+// Guarda el juego en el móvil para jugar sin conexión. Versión 20261111114342.
+const CACHE = 'destreza-20261111114342';
 const ARCHIVOS = ["./","./index.html","./manifest.webmanifest","./img/icono-180.png","./img/icono-192.png","./img/icono-512.png"];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ARCHIVOS)));
