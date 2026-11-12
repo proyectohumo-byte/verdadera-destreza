@@ -2534,6 +2534,9 @@ function abrirNuevaPartida() {
   const aj = ui.datos.ajustes;
   dlg.querySelector(`[name=primero][value=${aj.primeroEnDeclarar}]`).checked = true;
   dlg.querySelector(`[name=color][value=${ui.abajo}]`).checked = true;
+  // La mano de 5 cartas sale siempre marcada por defecto al abrir las opciones.
+  const manoPorDefecto = dlg.querySelector(`[name=mano][value="${aj.tamanoMano ?? 'todas'}"]`) ?? dlg.querySelector('[name=mano][value="5"]');
+  manoPorDefecto.checked = true;
   dlg.showModal();
 }
 
