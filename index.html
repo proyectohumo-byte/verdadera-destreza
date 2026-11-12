@@ -457,6 +457,21 @@ button.negativo:hover { background: linear-gradient(#7d211c, #5a1410); }
 .nota-ranking { font-style: italic; font-size: 13.5px; }
 #ranking-contenido { overflow-x: auto; }
 
+/* Historial */
+.filtros-historial { display: flex; gap: 8px; margin: 6px 0 10px; flex-wrap: wrap; }
+.historial { list-style: none; padding: 0; margin: 0 0 12px; }
+.historial > li { display: flex; gap: 8px; align-items: flex-start; border-bottom: 1px solid var(--linea); padding: 6px 0; }
+.historial details { flex: 1; min-width: 0; }
+.historial summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 14px; }
+.historial .h-fecha { color: var(--tinta-suave); font-style: italic; }
+.historial .h-res { color: var(--sangre); }
+.estrella { background: none; border: none; font-size: 22px; line-height: 1; cursor: pointer; color: var(--oro); padding: 0 2px; }
+.historial > li.favorita .estrella { color: var(--oro-claro); text-shadow: 0 0 1px var(--oro); }
+.cronica-historial { font-size: 13px; padding-left: 22px; margin: 8px 0; max-height: 320px; overflow-y: auto; }
+.cronica-historial li { margin-bottom: 3px; }
+.cronica-historial li.blanco { color: var(--tinta-suave); }
+.bloque-ranking summary { cursor: pointer; font-variant: small-caps; color: var(--sangre); margin: 8px 0; }
+
 </style>
 </head>
 <body>
@@ -466,7 +481,7 @@ button.negativo:hover { background: linear-gradient(#7d211c, #5a1410); }
     <div id="marcador" class="marcador"></div>
     <div class="cab-botones">
       <button class="secundario" data-accion="reglas">Reglas</button>
-      <button class="secundario" data-accion="ranking">Ranking</button>
+      <button class="secundario" data-accion="ranking">Historial</button>
       <button class="secundario" data-accion="nueva">Nueva partida</button>
     </div>
   </header>
@@ -499,7 +514,7 @@ button.negativo:hover { background: linear-gradient(#7d211c, #5a1410); }
         <label><input type="radio" name="modo" value="dosJugadores"> Dos jugadores en este ordenador</label>
       </fieldset>
       <fieldset>
-        <legend>Esgrimistas (para el ranking)</legend>
+        <legend>Esgrimistas (para el historial)</legend>
         <label class="campo">Tu nombre <input type="text" name="nombre" maxlength="24" autocomplete="nickname" placeholder="Tu nombre"></label>
         <label class="campo campo-otro">Nombre del otro jugador <input type="text" name="nombre2" maxlength="24" placeholder="Solo con dos jugadores"></label>
       </fieldset>
@@ -532,11 +547,11 @@ button.negativo:hover { background: linear-gradient(#7d211c, #5a1410); }
   </dialog>
 
   <dialog id="dlg-ranking" class="dlg-reglas">
-    <h2>Ranking</h2>
-    <p class="nota-ranking">Partidas terminadas en este dispositivo. Ordenado por victorias; el porcentaje cuenta los empates como media victoria.</p>
+    <h2>Historial</h2>
+    <p class="nota-ranking">Partidas terminadas en este dispositivo, de la más reciente a la más antigua. Pulsa una para ver su crónica y la estrella para guardarla en favoritas (las favoritas no se borran nunca solas).</p>
     <div id="ranking-contenido"></div>
     <div class="botones">
-      <button class="secundario" data-accion="borrar-ranking">Borrar ranking</button>
+      <button class="secundario" data-accion="borrar-ranking">Borrar historial</button>
       <button class="principal" data-accion="cerrar-ranking">Cerrar</button>
     </div>
   </dialog>
@@ -1686,7 +1701,7 @@ function calcularPista(mesa) {
 }
 
 // ---- ui/ranking.js ----
-// Ranking de partidas: se guarda en este dispositivo (localStorage), por nombre de esgrimista.
+// Historial y ranking de partidas: se guarda en este dispositivo (localStorage), por nombre de esgrimista.
 
 const CLAVE_PARTIDAS = 'destreza.partidas';
 const CLAVE_NOMBRES = 'destreza.nombres';
@@ -1712,15 +1727,39 @@ const leerPartidas = () => leerJSON(CLAVE_PARTIDAS, []);
 const leerNombres = () => leerJSON(CLAVE_NOMBRES, { yo: '', otro: '' });
 const guardarNombres = (nombres) => guardarJSON(CLAVE_NOMBRES, nombres);
 
-/** partida = { fecha, blanco: nombre, negro: nombre, ganador: 'blanco'|'negro'|null, vida: {blanco, negro} } */
+/**
+ * partida = { id, fecha, blanco: nombre, negro: nombre, ganador: 'blanco'|'negro'|null, vida, vidaInicial,
+ *             favorita, cronica: [{ texto, jugador, tipo }] }
+ * Se guardan las 150 últimas; las favoritas no se descartan nunca.
+ */
 function guardarPartida(partida) {
   const todas = leerPartidas();
-  todas.push(partida);
-  guardarJSON(CLAVE_PARTIDAS, todas.slice(-500));
+  todas.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, favorita: false, ...partida });
+  guardarJSON(CLAVE_PARTIDAS, recortar(todas, 150));
 }
 
+/** Quita las partidas no favoritas más antiguas hasta dejar `max` (las favoritas se quedan siempre). */
+function recortar(partidas, max) {
+  let sobran = partidas.length - max;
+  if (sobran <= 0) return partidas;
+  return partidas.filter((p) => p.favorita || sobran-- <= 0);
+}
+
+function alternarFavorita(id) {
+  const todas = leerPartidas();
+  const p = todas.find((x) => x.id === id);
+  if (p) p.favorita = !p.favorita;
+  guardarJSON(CLAVE_PARTIDAS, todas);
+  return p?.favorita;
+}
+
+function borrarPartida(id) {
+  guardarJSON(CLAVE_PARTIDAS, leerPartidas().filter((p) => p.id !== id));
+}
+
+/** Borra el historial salvo las favoritas. */
 function borrarRanking() {
-  guardarJSON(CLAVE_PARTIDAS, []);
+  guardarJSON(CLAVE_PARTIDAS, leerPartidas().filter((p) => p.favorita));
 }
 
 /** Tabla por esgrimista, ordenada por victorias, luego % de victorias y luego menos derrotas. Función pura. */
@@ -2235,24 +2274,53 @@ function registrarResultado(e) {
     ganador: e.empate ? null : e.ganador,
     vida: { ...e.vida },
     vidaInicial: ui.config.ajustes.vidaInicial,
+    cronica: ui.registro.filter((r) => r.tipo !== 'robo').map(({ texto, jugador, tipo }) => ({ texto, jugador, tipo })),
   });
 }
 
+let filtroHistorial = 'todas';
+const abiertas = new Set(); // partidas desplegadas en el historial
+
 function abrirRanking() {
-  const partidas = leerPartidas();
-  const filas = calcularRanking(partidas);
-  const tabla = filas.length
-    ? `<table class="tabla-ranking"><thead><tr><th>#</th><th>Esgrimista</th><th title="Partidas">P</th><th title="Ganadas">G</th><th title="Empates">E</th><th title="Perdidas">Pe</th><th title="Porcentaje de victorias">%</th><th title="Puntos de herida dados / recibidos">Tocados</th></tr></thead><tbody>${filas
+  const todas = leerPartidas();
+  const lista = todas.filter((p) => filtroHistorial === 'todas' || p.favorita).reverse();
+  const nFav = todas.filter((p) => p.favorita).length;
+  const filtros = `<div class="filtros-historial">
+    <button class="${filtroHistorial === 'todas' ? 'principal' : 'secundario'}" data-accion="filtro-historial" data-filtro="todas">Todas (${todas.length})</button>
+    <button class="${filtroHistorial === 'favoritas' ? 'principal' : 'secundario'}" data-accion="filtro-historial" data-filtro="favoritas">★ Favoritas (${nFav})</button>
+  </div>`;
+  const partidas = lista.length
+    ? `<ul class="historial">${lista.map(htmlPartidaHistorial).join('')}</ul>`
+    : `<p>${filtroHistorial === 'favoritas' ? 'No tienes partidas favoritas. Pulsa la estrella ☆ de una partida para marcarla.' : 'Todavía no hay partidas terminadas.'}</p>`;
+  const filas = calcularRanking(todas);
+  const ranking = filas.length
+    ? `<details class="bloque-ranking"><summary>Ranking por esgrimista</summary><table class="tabla-ranking"><thead><tr><th>#</th><th>Esgrimista</th><th title="Partidas">P</th><th title="Ganadas">G</th><th title="Empates">E</th><th title="Perdidas">Pe</th><th title="Porcentaje de victorias">%</th><th title="Puntos de herida dados / recibidos">Tocados</th></tr></thead><tbody>${filas
         .map((f, i) => `<tr><td>${i + 1}</td><td>${escapar(f.nombre)}</td><td>${f.jugadas}</td><td>${f.ganadas}</td><td>${f.empates}</td><td>${f.perdidas}</td><td>${f.porcentaje}</td><td>${f.puntosDados} / ${f.puntosRecibidos}</td></tr>`)
-        .join('')}</tbody></table>`
-    : '<p>Todavía no hay partidas terminadas.</p>';
-  const ultimas = partidas.slice(-10).reverse().map((p) => {
-    const fecha = new Date(p.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
-    const res = p.ganador === null ? 'empate' : `gana ${escapar(p[p.ganador])}`;
-    return `<li>${fecha}: ${escapar(p.blanco)} (Blanco) contra ${escapar(p.negro)} (Negro), ${res} · ${p.vida.blanco}-${p.vida.negro}</li>`;
-  }).join('');
-  $('#ranking-contenido').innerHTML = tabla + (ultimas ? `<h3>Últimas partidas</h3><ul class="ultimas-partidas">${ultimas}</ul>` : '');
-  $('#dlg-ranking').showModal();
+        .join('')}</tbody></table></details>`
+    : '';
+  $('#ranking-contenido').innerHTML = filtros + partidas + ranking;
+  for (const d of document.querySelectorAll('#ranking-contenido details[data-id]')) {
+    d.addEventListener('toggle', () => (d.open ? abiertas.add(d.dataset.id) : abiertas.delete(d.dataset.id)));
+  }
+  const dlg = $('#dlg-ranking');
+  if (!dlg.open) dlg.showModal();
+}
+
+function htmlPartidaHistorial(p) {
+  const f = new Date(p.fecha);
+  const fecha = `${f.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}, ${f.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+  const res = p.ganador === null ? 'Empate' : `Gana ${escapar(p[p.ganador])}`;
+  const cronica = p.cronica?.length
+    ? `<ol class="cronica-historial">${p.cronica.map((r) => `<li class="${r.jugador ?? ''} ${r.tipo ?? ''}">${r.texto}</li>`).join('')}</ol>`
+    : '<p class="nota-ranking">Esta partida se guardó sin la crónica.</p>';
+  return `<li class="${p.favorita ? 'favorita' : ''}">
+    <button class="estrella" data-accion="favorita" data-id="${p.id}" title="${p.favorita ? 'Quitar de favoritas' : 'Marcar como favorita'}" aria-pressed="${!!p.favorita}">${p.favorita ? '★' : '☆'}</button>
+    <details data-id="${p.id}" ${abiertas.has(p.id) ? 'open' : ''}>
+      <summary><span class="h-fecha">${fecha}</span> <span class="h-quien">${escapar(p.blanco)} (Blanco) contra ${escapar(p.negro)} (Negro)</span> <span class="h-res">${res} · ${p.vida.blanco}-${p.vida.negro}</span></summary>
+      ${cronica}
+      <div class="botones"><button class="secundario" data-accion="borrar-partida" data-id="${p.id}">Borrar esta partida</button></div>
+    </details>
+  </li>`;
 }
 
 function textoReparto() {
@@ -2756,7 +2824,10 @@ function enlazarEventos() {
       else if (a === 'reglas') $('#dlg-reglas').showModal();
       else if (a === 'ranking') abrirRanking();
       else if (a === 'cerrar-ranking') $('#dlg-ranking').close();
-      else if (a === 'borrar-ranking') { if (confirm('¿Borrar todas las partidas del ranking de este dispositivo?')) { borrarRanking(); abrirRanking(); } }
+      else if (a === 'borrar-ranking') { if (confirm('¿Borrar el historial de este dispositivo? Las favoritas se conservan.')) { borrarRanking(); abrirRanking(); } }
+      else if (a === 'favorita') { ev.preventDefault(); alternarFavorita(boton.dataset.id); abrirRanking(); }
+      else if (a === 'borrar-partida') { if (confirm('¿Borrar esta partida del historial?')) { borrarPartida(boton.dataset.id); abrirRanking(); } }
+      else if (a === 'filtro-historial') { filtroHistorial = boton.dataset.filtro; abrirRanking(); }
       else if (a === 'cerrar-reglas') $('#dlg-reglas').close();
       return;
     }
