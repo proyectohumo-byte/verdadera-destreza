@@ -434,6 +434,10 @@ body.desde-derecha .tic-confirmar { right: auto; left: -16px; }
 .carta.girada.elegible:hover { transform: rotate(180deg) translateY(4px); }
 .carta.girada .insignia { transform: rotate(180deg); }
 
+/* Botón negativo (No intervenir): granate */
+button.negativo { background: linear-gradient(#6a1a16, #4a100d); color: #f7e3dc; border-color: #2e0a08; box-shadow: inset 0 1px 0 #ffffff1f, 0 1px 3px #2a1f1659; font-variant: small-caps; letter-spacing: 0.5px; }
+button.negativo:hover { background: linear-gradient(#7d211c, #5a1410); }
+
 </style>
 </head>
 <body>
@@ -2264,7 +2268,7 @@ function htmlAccionesMano(e, j, activo, oculta) {
   const etiqueta = hay
     ? (pasoAtras ? 'Dejar que se cumpla el paso atrás' : parada ? 'No contestar (punto muerto)' : `No intervenir (recibes ${puntos(dano)})`)
     : (pasoAtras ? 'No puedes cortar el paso atrás: aceptar' : parada ? 'No puedes contestar: punto muerto' : `No puedes intervenir: recibes ${puntos(dano)}`);
-  return `<div class="acciones-mano"><button class="${hay ? 'secundario' : 'principal'}" data-accion="pasar">${etiqueta}</button></div>`;
+  return `<div class="acciones-mano"><button class="negativo" data-accion="pasar">${etiqueta}</button></div>`;
 }
 
 // ---------- Mensajes flotantes (avisos y errores) ----------
