@@ -287,7 +287,10 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--sangre); }
   #registro-lista { max-height: 220px; }
   :root { --w: clamp(48px, calc((100vw - 90px) / 12.8), 92px); }
   .mesa .carta { --w: clamp(44px, calc((100vw - 90px) / 16), 76px); }
-  .marcador { flex-wrap: wrap; }
+  /* Cabecera: título y botones arriba; las dos vidas debajo, en paralelo */
+  .cabecera { flex-wrap: wrap; gap: 8px 14px; }
+  .marcador { order: 3; width: 100%; flex-wrap: nowrap; gap: 10px; }
+  .vida { flex: 1; }
 }
 
 /* ---------- Pantallas táctiles ---------- */
@@ -396,6 +399,18 @@ body.arrastrando #pista.no-encaja { box-shadow: inset 0 0 0 4px var(--papel-clar
   .cronica-flotante .herida, .cronica-flotante .fin { color: #ffb3a6; font-weight: bold; }
   .tablero { padding-bottom: 64px; }
 }
+
+/* ✓ verde al final de la serie montada: se toca para jugarla */
+.tic-confirmar {
+  position: absolute; top: 50%; right: -16px; z-index: 3; transform: translateY(-50%);
+  width: 34px; height: 34px; padding: 0; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #5f9a59, var(--verde)); color: #fff; font-size: 20px; line-height: 1;
+  border: 2px solid #f7ecd6; box-shadow: 0 2px 8px #0007; animation: latido 1.4s ease-in-out infinite;
+}
+body.desde-derecha .tic-confirmar { right: auto; left: -16px; }
+.tic-confirmar:hover { filter: brightness(1.1); }
+@keyframes latido { 0%, 100% { transform: translateY(-50%) scale(1); } 50% { transform: translateY(-50%) scale(1.12); } }
+@media (max-width: 700px) { .tic-confirmar { width: 30px; height: 30px; font-size: 18px; right: -14px; } }
 
 </style>
 </head>
@@ -2235,7 +2250,8 @@ function htmlPista(e) {
         g.cartas.forEach((inst, ci) => {
           const d = defDe(ui.config, inst);
           const titulo = `${d.nombre}: arrástrala para moverla o devolverla a la mano; tócala para quitarla junto con las siguientes`;
-          celdas.push(`<div class="hueco celda" style="grid-row:1;grid-column:${columnaDe(ci)}" data-serie-pos="${ci}" data-mano="${inst}">${htmlCarta(d, { oscura, inst, clases: ['provisional', 'tocable'], titulo, insignia: String(ci + 1), arrastrable: !TACTIL })}</div>`);
+          const tic = ci === g.cartas.length - 1 && estadoSeleccion().valida ? '<button class="tic-confirmar" data-accion="confirmar" title="Jugar la serie" aria-label="Jugar la serie">✓</button>' : '';
+          celdas.push(`<div class="hueco celda" style="grid-row:1;grid-column:${columnaDe(ci)}" data-serie-pos="${ci}" data-mano="${inst}">${htmlCarta(d, { oscura, inst, clases: ['provisional', 'tocable'], titulo, insignia: String(ci + 1), arrastrable: !TACTIL })}${tic}</div>`);
         });
         continue;
       }
@@ -2301,21 +2317,11 @@ function htmlCentro() {
   const sd = e.serieDeclarada;
   let instruccion;
   const botones = [];
-  const sel = estadoSeleccion();
-  const sumaSel = ui.seleccion.length ? valorSerie(defs(ui.seleccion)) : 0;
   if (e.fase === 'declarar') {
     const apertura = Object.values(ui.config.cartas).filter((d) => d.abreCombate).map((d) => d.nombre).join(' o ');
-    instruccion = e.ataqueLibre
-      ? 'El combate sigue: declara un ataque nuevo. Puede empezar por cualquier carta que pueda ir primera (sin círculos o con círculo blanco) y debe terminar en Estocada o Cuchillada.'
-      : `Declara una serie para abrir el combate. Debe empezar por ${apertura}.`;
+    instruccion = e.ataqueLibre ? 'Declara un ataque nuevo: debe terminar en Estocada o Cuchillada.' : `abre el combate con ${apertura} y termina hiriendo.`;
     const ac = ui.config.ajustes.aperturaCercana;
-    const pen = [];
-    if (ac.cuestaVida) pen.push(`te cuesta ${puntos(ac.cuestaVida)} de vida`);
-    if (ac.sinModificador) pen.push('pierde su modificador');
-    else if (ac.reduccionValor) pen.push(`vale ${puntos(ac.reduccionValor)} menos`);
-    if (ac.heridaExtraRecibida) pen.push(`si te hieren en este combate, recibes +${ac.heridaExtraRecibida}`);
-    if (pen.length) instruccion += ` Abrir con ${lista(ac.cartas.map((id) => ui.config.cartas[id].nombre))} es abrir más cerca: ${lista(pen)}.`;
-    botones.push(`<button class="principal" data-accion="confirmar" ${sel.valida ? '' : 'disabled'} title="${sel.valida ? '' : sel.motivo}">Confirmar serie</button>`);
+    if (!e.ataqueLibre && (ac.reduccionValor || ac.sinModificador)) instruccion += ` La Cuchillada que abre vale ${ac.sinModificador ? 1 : ui.config.cartas.cuchillada.valor - ac.reduccionValor}.`;
   } else {
     const dano = danoPendiente(e).dano;
     const pasoAtras = esPasoAtras(ui.config, sd.cartas);
@@ -2324,35 +2330,24 @@ function htmlCentro() {
     const robadas = e.eventos.find((ev) => ev.tipo === 'roboParaContestar' && ev.jugador === j)?.n ?? 0;
     const hay = hayIntervencionLegal(e);
     instruccion = pasoAtras
-      ? `${N[sd.jugador]} da un paso atrás. Puedes cortarlo con una Estocada o dejar que se cumpla.`
+      ? `${N[sd.jugador]} da un paso atrás: córtalo con una Estocada o deja que se cumpla.`
       : parada && obligatorio
-        ? `${N[sd.jugador]} para con un ${defDe(ui.config, sd.cartas[0]).nombre}, que no hiere. Tienes que contestarlo: intervén el ${defDe(ui.config, sd.cartas[0]).nombre} con una serie que termine hiriendo.${robadas ? ` Has robado ${robadas === 1 ? '1 carta' : `${robadas} cartas`} para poder hacerlo.` : ''}`
-      : parada
-        ? `${N[sd.jugador]} para con un ${defDe(ui.config, sd.cartas[0]).nombre}, que no hiere. Contéstalo o deja que haya punto muerto: se reparte de nuevo y declaras tú.`
-        : `Responde a la serie de ${N[sd.jugador]}: toca la carta suya que quieres intervenir (o suelta encima una de las tuyas) y forma tu respuesta en la pista. Si la serie queda cerrada, por ejemplo con una Estocada, se juega al soltarla; si no, pulsa Intervenir. También puedes no intervenir.`;
+        ? `contesta el Reparo de ${N[sd.jugador]} (no hiere, pero no se puede dejar pasar).${robadas ? ` Has robado ${robadas === 1 ? '1 carta' : `${robadas} cartas`} para poder hacerlo.` : ''}`
+        : parada
+          ? `contesta el Reparo de ${N[sd.jugador]} o deja que haya punto muerto.`
+          : `responde a la serie de ${N[sd.jugador]}: elige su carta y forma tu respuesta en la pista.`;
     if (!hay) {
       instruccion = pasoAtras
-        ? 'No puedes cortar el paso atrás (no te queda ninguna Estocada): se cumplirá.'
-        : parada ? `No puedes contestar la parada${obligatorio ? ' y no te quedan cartas en la pila' : ''}: punto muerto. Se reparte de nuevo y declaras tú.` : `No tienes ninguna intervención legal: recibes ${puntos(dano)}.`;
+        ? 'no puedes cortar el paso atrás: se cumplirá.'
+        : parada ? 'no puedes contestar la parada: punto muerto, se reparte de nuevo.' : `no tienes ninguna intervención legal: recibes ${puntos(dano)}.`;
     }
-    if (hay) botones.push(`<button class="principal" data-accion="confirmar" ${sel.valida ? '' : 'disabled'} title="${sel.valida ? '' : sel.motivo}">Intervenir</button>`);
-    const etiqueta = pasoAtras ? 'No intervenir (el paso atrás se cumple)' : parada ? 'No intervenir (punto muerto, declaras tú)' : `No intervenir (recibes ${puntos(dano)})`;
+    const etiqueta = pasoAtras ? 'Dejar que se cumpla' : parada ? 'No contestar (punto muerto)' : `No intervenir (recibes ${puntos(dano)})`;
     const forzado = pasoAtras ? 'Aceptar el paso atrás' : parada ? 'Aceptar el punto muerto' : `Recibir ${puntos(dano)}`;
     if (!(obligatorio && hay)) botones.push(`<button class="${hay ? 'secundario' : 'principal'}" data-accion="pasar">${hay ? etiqueta : forzado}</button>`);
   }
-  if (ui.seleccion.length) {
-    botones.push('<button class="secundario" data-accion="deshacer">Quitar última</button>');
-    botones.push('<button class="secundario" data-accion="limpiar">Limpiar</button>');
-  }
-  let lineaSerie = '';
-  if (ui.seleccion.length) {
-    const objetivo = e.fase === 'responder' && ui.objetivo !== null ? ` contra ${defDe(ui.config, sd.cartas[ui.objetivo]).nombre}` : '';
-    lineaSerie = `<div class="serie-en-curso">Tu ${e.fase === 'declarar' ? 'serie' : 'respuesta'}${objetivo}: <strong>${nombres(ui.seleccion)}</strong> · suma ${sumaSel} <span class="${sel.valida ? 'ok' : 'mal'}">${sel.valida ? '✔ válida' : `✖ ${sel.motivo}`}</span></div>`;
-  }
-  const puedeJugar = e.fase === 'declarar' || hayIntervencionLegal(e);
-  const franja = puedeJugar && !ui.seleccion.length ? `<div class="ayuda-serie">Toca las cartas de tu mano o arrástralas a la pista para formar tu ${e.fase === 'declarar' ? 'serie' : 'respuesta'}.</div>` : '';
+  if (ui.seleccion.length && estadoSeleccion().valida) instruccion += ' Toca el ✓ verde para jugar la serie.';
   const msg = ui.mensaje ? `<div class="mensaje ${ui.mensaje.tipo}">${ui.mensaje.texto}</div>` : '';
-  return `<div class="estado-turno"><span class="ficha ${j}"></span><strong>Turno de ${N[j]}</strong> · ${instruccion}</div>${franja}${lineaSerie}${msg}<div class="botones">${botones.join('')}</div>`;
+  return `<div class="estado-turno"><span class="ficha ${j}"></span><strong>Turno de ${N[j]}</strong> · ${instruccion}</div>${msg}${botones.length ? `<div class="botones">${botones.join('')}</div>` : ''}`;
 }
 
 /** Franja donde se construye la serie: huecos de destino entre las cartas elegidas. */
