@@ -446,6 +446,17 @@ button.negativo:hover { background: linear-gradient(#7d211c, #5a1410); }
 /* Carta sujeta con el dedo: lista para arrastrar */
 .carta.sujeta { transform: translateY(-8px) scale(1.06); box-shadow: 0 0 0 2px var(--oro-claro), 0 10px 20px #2a1f1666; }
 
+/* Nombres y ranking */
+.campo { display: flex; flex-direction: column; gap: 3px; margin: 4px 0; }
+.campo input { font: inherit; padding: 6px 8px; border: 1px solid var(--tinta-suave, #8a7a62); border-radius: 4px; background: #fffaf0; color: inherit; }
+.tabla-ranking { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tabla-ranking th, .tabla-ranking td { padding: 5px 6px; border-bottom: 1px solid rgba(90, 60, 30, 0.25); text-align: center; }
+.tabla-ranking td:nth-child(2), .tabla-ranking th:nth-child(2) { text-align: left; }
+.tabla-ranking tbody tr:first-child td { font-weight: bold; }
+.ultimas-partidas { padding-left: 18px; font-size: 13.5px; }
+.nota-ranking { font-style: italic; font-size: 13.5px; }
+#ranking-contenido { overflow-x: auto; }
+
 </style>
 </head>
 <body>
@@ -455,6 +466,7 @@ button.negativo:hover { background: linear-gradient(#7d211c, #5a1410); }
     <div id="marcador" class="marcador"></div>
     <div class="cab-botones">
       <button class="secundario" data-accion="reglas">Reglas</button>
+      <button class="secundario" data-accion="ranking">Ranking</button>
       <button class="secundario" data-accion="nueva">Nueva partida</button>
     </div>
   </header>
@@ -487,6 +499,11 @@ button.negativo:hover { background: linear-gradient(#7d211c, #5a1410); }
         <label><input type="radio" name="modo" value="dosJugadores"> Dos jugadores en este ordenador</label>
       </fieldset>
       <fieldset>
+        <legend>Esgrimistas (para el ranking)</legend>
+        <label class="campo">Tu nombre <input type="text" name="nombre" maxlength="24" autocomplete="nickname" placeholder="Tu nombre"></label>
+        <label class="campo campo-otro">Nombre del otro jugador <input type="text" name="nombre2" maxlength="24" placeholder="Solo con dos jugadores"></label>
+      </fieldset>
+      <fieldset>
         <legend>Tu color (se juega desde abajo)</legend>
         <label><input type="radio" name="color" value="blanco" checked> Blanco (mazo claro)</label>
         <label><input type="radio" name="color" value="negro"> Negro (mazo oscuro)</label>
@@ -512,6 +529,16 @@ button.negativo:hover { background: linear-gradient(#7d211c, #5a1410); }
         <button class="principal" value="empezar">Empezar</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="dlg-ranking" class="dlg-reglas">
+    <h2>Ranking</h2>
+    <p class="nota-ranking">Partidas terminadas en este dispositivo. Ordenado por victorias; el porcentaje cuenta los empates como media victoria.</p>
+    <div id="ranking-contenido"></div>
+    <div class="botones">
+      <button class="secundario" data-accion="borrar-ranking">Borrar ranking</button>
+      <button class="principal" data-accion="cerrar-ranking">Cerrar</button>
+    </div>
   </dialog>
 
   <dialog id="dlg-reglas" class="dlg-reglas">
@@ -1658,8 +1685,73 @@ function calcularPista(mesa) {
   return { columnas, filas };
 }
 
+// ---- ui/ranking.js ----
+// Ranking de partidas: se guarda en este dispositivo (localStorage), por nombre de esgrimista.
+
+const CLAVE_PARTIDAS = 'destreza.partidas';
+const CLAVE_NOMBRES = 'destreza.nombres';
+
+function leerJSON(clave, porDefecto) {
+  try {
+    const v = JSON.parse(localStorage.getItem(clave));
+    return v ?? porDefecto;
+  } catch {
+    return porDefecto;
+  }
+}
+
+function guardarJSON(clave, valor) {
+  try {
+    localStorage.setItem(clave, JSON.stringify(valor));
+  } catch {
+    // Sin almacenamiento (modo privado): el ranking no se guarda.
+  }
+}
+
+const leerPartidas = () => leerJSON(CLAVE_PARTIDAS, []);
+const leerNombres = () => leerJSON(CLAVE_NOMBRES, { yo: '', otro: '' });
+const guardarNombres = (nombres) => guardarJSON(CLAVE_NOMBRES, nombres);
+
+/** partida = { fecha, blanco: nombre, negro: nombre, ganador: 'blanco'|'negro'|null, vida: {blanco, negro} } */
+function guardarPartida(partida) {
+  const todas = leerPartidas();
+  todas.push(partida);
+  guardarJSON(CLAVE_PARTIDAS, todas.slice(-500));
+}
+
+function borrarRanking() {
+  guardarJSON(CLAVE_PARTIDAS, []);
+}
+
+/** Tabla por esgrimista, ordenada por victorias, luego % de victorias y luego menos derrotas. Función pura. */
+function calcularRanking(partidas) {
+  const filas = new Map();
+  const fila = (nombre) => {
+    if (!filas.has(nombre)) filas.set(nombre, { nombre, jugadas: 0, ganadas: 0, empates: 0, perdidas: 0, puntosDados: 0, puntosRecibidos: 0 });
+    return filas.get(nombre);
+  };
+  for (const p of partidas) {
+    for (const lado of ['blanco', 'negro']) {
+      const otro = lado === 'blanco' ? 'negro' : 'blanco';
+      const f = fila(p[lado]);
+      f.jugadas++;
+      if (p.ganador === lado) f.ganadas++;
+      else if (p.ganador === null) f.empates++;
+      else f.perdidas++;
+      if (p.vida && p.vidaInicial) {
+        f.puntosDados += p.vidaInicial - p.vida[otro];
+        f.puntosRecibidos += p.vidaInicial - p.vida[lado];
+      }
+    }
+  }
+  return [...filas.values()]
+    .map((f) => ({ ...f, porcentaje: f.jugadas ? Math.round((100 * (f.ganadas + f.empates / 2)) / f.jugadas) : 0 }))
+    .sort((a, b) => b.ganadas - a.ganadas || b.porcentaje - a.porcentaje || a.perdidas - b.perdidas || a.nombre.localeCompare(b.nombre));
+}
+
 // ---- ui/app.js ----
 // Interfaz del juego: tablero, selección de cartas, validación en vivo y turnos del ordenador.
+
 
 
 
@@ -1834,8 +1926,27 @@ function jugarSiCerrada() {
   return true;
 }
 
+/**
+ * Soltar una carta frente a la serie rival: se entiende que va contra la carta rival que tiene
+ * enfrente (la más cercana en horizontal, o la indicada si se soltó encima). Si contra esa no es
+ * legal, se coloca contra la carta legal más cercana.
+ */
+function soltarHaciaRival(inst, x, indicePedido = null) {
+  const cartas = [...document.querySelectorAll('[data-rival]')].filter((h) => h.dataset.rival !== '');
+  const porDistancia = cartas
+    .map((h) => { const r = h.getBoundingClientRect(); return { indice: Number(h.dataset.rival), dist: Math.abs(r.left + r.width / 2 - x) }; })
+    .sort((a, b) => a.dist - b.dist);
+  if (!porDistancia.length) return soltarEnSerie(inst, ui.seleccion.length);
+  const pedido = indicePedido ?? porDistancia[0].indice;
+  if (respuestaSobreRival(inst, pedido).valida) return soltarEnRival(inst, pedido);
+  const legal = porDistancia.find((c) => respuestaSobreRival(inst, c.indice).valida);
+  if (!legal) return soltarEnRival(inst, pedido); // explica por qué no puede
+  const nombre = (i) => defDe(ui.config, ui.estado.serieDeclarada.cartas[i]).nombre;
+  soltarEnRival(inst, legal.indice, `${defDe(ui.config, inst).nombre} no puede intervenir ${nombre(pedido)}: la coloco contra ${nombre(legal.indice)}, la carta más cercana que sí puede intervenir.`);
+}
+
 /** Soltar una carta sobre una carta rival: empieza ahí la respuesta (con la serie ya preparada detrás, si encaja). */
-function soltarEnRival(inst, indice) {
+function soltarEnRival(inst, indice, nota = null) {
   const r = respuestaSobreRival(inst, indice);
   if (!r.valida) {
     avisar(r.motivo);
@@ -1844,7 +1955,7 @@ function soltarEnRival(inst, indice) {
   ui.seleccion = r.cartas;
   ui.objetivo = indice;
   ui.objetivoFijado = true;
-  ui.mensaje = r.recortada ? { texto: 'El resto de tu serie no encajaba detrás: empiezas una respuesta nueva con esta carta.', tipo: 'info' } : null;
+  ui.mensaje = nota ? { texto: nota, tipo: 'info' } : r.recortada ? { texto: 'El resto de tu serie no encajaba detrás: empiezas una respuesta nueva con esta carta.', tipo: 'info' } : null;
   render(); // nunca se juega sola: se confirma con el ✓ verde de la pista
 }
 
@@ -1892,9 +2003,11 @@ function destinoDe(objetivo) {
   }
   const rival = objetivo.closest('[data-rival]');
   if (rival && rival.dataset.rival !== '' && ui.estado.fase === 'responder') return { tipo: 'rival', indice: Number(rival.dataset.rival), el: rival };
+  if (rival && ui.estado.fase === 'responder' && !ui.seleccion.length) return { tipo: 'frente', el: rival };
   const mano = objetivo.closest('[data-soltar-mano]');
   if (mano) return { tipo: 'mano', el: mano };
   const pista = objetivo.closest('#pista');
+  if (pista && ui.estado.fase === 'responder' && !ui.seleccion.length) return { tipo: 'frente', el: pista };
   if (pista) return { tipo: 'serie', k: ui.seleccion.length, el: pista };
   return null;
 }
@@ -1936,7 +2049,8 @@ function enlazarTactil() {
       arrastre = null;
       limpiarDestinos();
       if (d?.tipo === 'serie') soltarEnSerie(inst, d.k);
-      else if (d?.tipo === 'rival') soltarEnRival(inst, d.indice);
+      else if (d?.tipo === 'rival') soltarHaciaRival(inst, ev.clientX, d.indice);
+      else if (d?.tipo === 'frente') soltarHaciaRival(inst, ev.clientX);
       else if (d?.tipo === 'mano') soltarEnMano(inst);
     } else if (!toque.modo && toque.sujeta && soltar) {
       mostrarDetalle(toque.carta.dataset.carta, toque.carta.classList.contains('oscura'));
@@ -2028,7 +2142,8 @@ function enlazarArrastre() {
     if (!d) return;
     ev.preventDefault();
     if (d.tipo === 'serie') soltarEnSerie(inst, d.k);
-    else if (d.tipo === 'rival') soltarEnRival(inst, d.indice);
+    else if (d.tipo === 'rival') soltarHaciaRival(inst, ev.clientX, d.indice);
+    else if (d.tipo === 'frente') soltarHaciaRival(inst, ev.clientX);
     else soltarEnMano(inst);
   });
   document.addEventListener('dragend', () => {
@@ -2097,11 +2212,47 @@ function jugar(jugada) {
     pausa.oculta = true;
     setTimeout(() => { if (ui.pausa === pausa) { pausa.oculta = false; render(); } }, 1800);
   }
+  if (despues.fase === 'fin' && antes.fase !== 'fin') registrarResultado(despues);
   if (despues.turno !== antes.turno) ui.manoVisible = false;
   ui.estado = despues;
   limpiarSeleccion();
   ui.mensaje = null;
   render();
+}
+
+// ---------- Ranking ----------
+
+function escapar(t) {
+  return String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+}
+
+function registrarResultado(e) {
+  if (!ui.nombres) return;
+  guardarPartida({
+    fecha: new Date().toISOString(),
+    blanco: ui.nombres.blanco,
+    negro: ui.nombres.negro,
+    ganador: e.empate ? null : e.ganador,
+    vida: { ...e.vida },
+    vidaInicial: ui.config.ajustes.vidaInicial,
+  });
+}
+
+function abrirRanking() {
+  const partidas = leerPartidas();
+  const filas = calcularRanking(partidas);
+  const tabla = filas.length
+    ? `<table class="tabla-ranking"><thead><tr><th>#</th><th>Esgrimista</th><th title="Partidas">P</th><th title="Ganadas">G</th><th title="Empates">E</th><th title="Perdidas">Pe</th><th title="Porcentaje de victorias">%</th><th title="Puntos de herida dados / recibidos">Tocados</th></tr></thead><tbody>${filas
+        .map((f, i) => `<tr><td>${i + 1}</td><td>${escapar(f.nombre)}</td><td>${f.jugadas}</td><td>${f.ganadas}</td><td>${f.empates}</td><td>${f.perdidas}</td><td>${f.porcentaje}</td><td>${f.puntosDados} / ${f.puntosRecibidos}</td></tr>`)
+        .join('')}</tbody></table>`
+    : '<p>Todavía no hay partidas terminadas.</p>';
+  const ultimas = partidas.slice(-10).reverse().map((p) => {
+    const fecha = new Date(p.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+    const res = p.ganador === null ? 'empate' : `gana ${escapar(p[p.ganador])}`;
+    return `<li>${fecha}: ${escapar(p.blanco)} (Blanco) contra ${escapar(p.negro)} (Negro), ${res} · ${p.vida.blanco}-${p.vida.negro}</li>`;
+  }).join('');
+  $('#ranking-contenido').innerHTML = tabla + (ultimas ? `<h3>Últimas partidas</h3><ul class="ultimas-partidas">${ultimas}</ul>` : '');
+  $('#dlg-ranking').showModal();
 }
 
 function textoReparto() {
@@ -2226,7 +2377,7 @@ function htmlMarcador(e) {
     const v = e.vida[j];
     const max = ui.config.ajustes.vidaInicial;
     const segs = Array.from({ length: max }, (_, i) => `<span class="${i < v ? 'llena' : ''}"></span>`).join('');
-    const quien = ui.modo === 'ordenador' ? (j === ui.ladoOrdenador ? ' (ordenador)' : ' (tú)') : '';
+    const quien = esOrdenador(j) ? ' (ordenador)' : ui.nombres?.[j] && ui.nombres[j] !== 'Anónimo' ? ` (${escapar(ui.nombres[j])})` : ui.modo === 'ordenador' ? ' (tú)' : '';
     return `<div class="vida ${j} ${e.turno === j && e.fase !== 'fin' ? 'activo' : ''}">
       <div class="vida-nombre">${N[j]}${quien}${e.turno === j && e.fase !== 'fin' && esOrdenador(j) && !ui.pausa ? ' <span class="pensando">pensando…</span>' : ''}</div>
       <div class="vida-barra" title="${v} de ${max} puntos de vida">${segs}</div>
@@ -2550,6 +2701,9 @@ function abrirNuevaPartida() {
   // La mano de 5 cartas sale siempre marcada por defecto al abrir las opciones.
   const manoPorDefecto = dlg.querySelector(`[name=mano][value="${aj.tamanoMano ?? 'todas'}"]`) ?? dlg.querySelector('[name=mano][value="5"]');
   manoPorDefecto.checked = true;
+  const nombres = leerNombres();
+  dlg.querySelector('[name=nombre]').value = nombres.yo ?? '';
+  dlg.querySelector('[name=nombre2]').value = nombres.otro ?? '';
   dlg.showModal();
 }
 
@@ -2559,6 +2713,11 @@ function empezarPartida(form) {
   ui.abajo = f.get('color') === 'negro' ? 'negro' : 'blanco';
   ui.ladoOrdenador = RIVAL[ui.abajo];
   ui.rival = f.get('nivel') === 'azar' ? crearRivalAzar() : crearRivalReglas();
+  const yo = String(f.get('nombre') ?? '').trim();
+  const otro = String(f.get('nombre2') ?? '').trim();
+  guardarNombres({ yo, otro });
+  const nombreRival = ui.modo === 'ordenador' ? (f.get('nivel') === 'azar' ? 'Ordenador (fácil)' : 'Ordenador (normal)') : otro || 'Invitado';
+  ui.nombres = { [ui.abajo]: yo || 'Anónimo', [RIVAL[ui.abajo]]: nombreRival };
   const ajustes = {
     ...ui.datos.ajustes,
     circuloBlancoExtra: ui.datos.ajustes.circuloBlancoExtra ?? [],
@@ -2595,6 +2754,9 @@ function enlazarEventos() {
       else if (a === 'ver-mano') { ui.manoVisible = true; render(); }
       else if (a === 'nueva') abrirNuevaPartida();
       else if (a === 'reglas') $('#dlg-reglas').showModal();
+      else if (a === 'ranking') abrirRanking();
+      else if (a === 'cerrar-ranking') $('#dlg-ranking').close();
+      else if (a === 'borrar-ranking') { if (confirm('¿Borrar todas las partidas del ranking de este dispositivo?')) { borrarRanking(); abrirRanking(); } }
       else if (a === 'cerrar-reglas') $('#dlg-reglas').close();
       return;
     }
