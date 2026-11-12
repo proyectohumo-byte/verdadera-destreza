@@ -429,6 +429,11 @@ body.desde-derecha .tic-confirmar { right: auto; left: -16px; }
 .mensaje-flotante.info { border-left: 4px solid var(--oro); }
 @media (max-width: 1200px) { .mensaje-flotante { bottom: calc(64px + env(safe-area-inset-bottom)); } }
 
+/* Cartas del lado de enfrente: dadas la vuelta, como sobre la mesa (se conserva la guía de los iconos) */
+.carta.girada { transform: rotate(180deg); }
+.carta.girada.elegible:hover { transform: rotate(180deg) translateY(4px); }
+.carta.girada .insignia { transform: rotate(180deg); }
+
 </style>
 </head>
 <body>
@@ -1604,7 +1609,8 @@ function htmlCarta(def, opciones = {}) {
 
 /**
  * calcularPista(mesa) → { columnas, filas: { blanco: [fila], negro: [fila] } }
- * fila = { grupos: [{ gi, col }] }   (gi: índice del grupo en mesa[jugador])
+ * fila = { grupos: [{ gi, col }], reciente }   (gi: índice del grupo en mesa[jugador]; las filas
+ * van ordenadas de la más reciente, junto a la línea, a la más antigua)
  */
 function calcularPista(mesa) {
   const otro = { blanco: 'negro', negro: 'blanco' };
@@ -1628,9 +1634,12 @@ function calcularPista(mesa) {
     }
     for (let c = col; c < col + n; c++) ocupadas[j][r].add(c);
     filas[j][r].grupos.push({ gi, col });
+    filas[j][r].reciente = Math.max(filas[j][r].reciente ?? -1, g.orden ?? 0);
     columnaDe[j][gi] = col;
     columnas = Math.max(columnas, col + n);
   }
+  // La fila con la serie más reciente va pegada a la línea de combate; las anteriores se alejan.
+  for (const j of ['blanco', 'negro']) filas[j].sort((a, b) => b.reciente - a.reciente);
   return { columnas, filas };
 }
 
@@ -2294,6 +2303,7 @@ function htmlPista(e) {
 
   const htmlFila = (j, fila) => {
     const oscura = j === 'negro';
+    const girada = j !== ui.abajo; // cartas del lado de enfrente: dadas la vuelta, como en la mesa
     let activa = false;
     const celdas = [];
     let provisional = false;
@@ -2306,7 +2316,7 @@ function htmlPista(e) {
           const d = defDe(ui.config, inst);
           const titulo = `${d.nombre}: arrástrala para moverla o devolverla a la mano; tócala para quitarla junto con las siguientes`;
           const tic = ci === g.cartas.length - 1 && estadoSeleccion().valida ? '<button class="tic-confirmar" data-accion="confirmar" title="Jugar la serie" aria-label="Jugar la serie">✓</button>' : '';
-          celdas.push(`<div class="hueco celda" style="grid-row:1;grid-column:${columnaDe(ci)}" data-serie-pos="${ci}" data-mano="${inst}">${htmlCarta(d, { oscura, inst, clases: ['provisional', 'tocable'], titulo, insignia: String(ci + 1), arrastrable: !TACTIL })}${tic}</div>`);
+          celdas.push(`<div class="hueco celda" style="grid-row:1;grid-column:${columnaDe(ci)}" data-serie-pos="${ci}" data-mano="${inst}">${htmlCarta(d, { oscura, inst, clases: ['provisional', 'tocable', ...(girada ? ['girada'] : [])], titulo, insignia: String(ci + 1), arrastrable: !TACTIL })}${tic}</div>`);
         });
         continue;
       }
@@ -2314,7 +2324,7 @@ function htmlPista(e) {
       if (esDeclarada) activa = true;
       g.cartas.forEach((inst, ci) => {
         const d = defDe(ui.config, inst);
-        const clases = [];
+        const clases = girada ? ['girada'] : [];
         let titulo;
         let insignia = '';
         let rival = '';
