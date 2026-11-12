@@ -336,6 +336,67 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--sangre); }
   .carta.jugable:hover { transform: none; box-shadow: 0 1px 2px #2a1f1640, 0 3px 6px #2a1f1626; }
 }
 
+/* ---------- Serie en construcción sobre la pista ---------- */
+.carta.provisional { outline: 2px dashed var(--oro); outline-offset: 2px; box-shadow: 0 6px 14px #2a1f1659; cursor: grab; }
+.fila.con-provisional { background: #a77e2c1f; box-shadow: inset 0 0 0 1px var(--oro); }
+.carta.en-tablero { opacity: 0.3; filter: saturate(0.4); }
+.ayuda-serie { font-size: 14px; font-style: italic; color: var(--tinta-suave); }
+body.arrastrando #pista.encaja { box-shadow: inset 0 0 0 4px var(--papel-claro), inset 0 0 0 6px var(--verde), var(--sombra); }
+body.arrastrando #pista.no-encaja { box-shadow: inset 0 0 0 4px var(--papel-claro), inset 0 0 0 6px #7d1e1a88, var(--sombra); }
+
+/* Mano propia: ventana de 5 cartas completas con un trozo de la anterior y de la siguiente.
+   Se desplaza de lado (dedo, rueda del ratón o barra). La mano del rival, boca abajo, se ve entera. */
+.mano:not(.mano-oculta) .mano-cartas {
+  --hueco-mano: 7px;
+  gap: var(--hueco-mano);
+  width: calc(var(--w) * 5.6 + var(--hueco-mano) * 6); max-width: 100%;
+  margin-inline: auto; overflow-x: auto; overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity; scroll-padding-inline: calc(var(--w) * 0.3 + var(--hueco-mano));
+  padding-inline: calc(var(--w) * 0.3); padding-bottom: 6px;
+}
+.mano:not(.mano-oculta) .mano-cartas .hueco { scroll-snap-align: start; flex-shrink: 0; }
+.mano .carta.tocable { touch-action: pan-x; }
+.mano-cartas { scrollbar-width: thin; scrollbar-color: var(--tinta-tenue) transparent; }
+@media (pointer: coarse) {
+  .mano-cartas { scrollbar-width: none; }
+  .mano-cartas::-webkit-scrollbar { display: none; }
+}
+@media (max-width: 700px) {
+  :root { --w: clamp(46px, calc((100vw - 52px) / 5.6), 92px); }
+  .mano:not(.mano-oculta) .mano-cartas { --hueco-mano: 4px; }
+}
+
+/* ---------- Crónica: aviso flotante y panel desplegable (pantallas estrechas) ---------- */
+.cronica-flotante, .btn-cronica, .cerrar-cronica { display: none; }
+@media (max-width: 1200px) {
+  .registro {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; max-height: 62vh;
+    border-top: 3px double var(--oro); box-shadow: 0 -10px 30px #2a1f1666;
+    transform: translateY(105%); transition: transform 0.25s ease;
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  }
+  body.cronica-abierta .registro { transform: none; }
+  #registro-lista { max-height: calc(62vh - 60px); }
+  .registro h2 { display: flex; align-items: center; justify-content: space-between; }
+  .cerrar-cronica { display: block; background: transparent; border: 0; font-size: 26px; line-height: 1; padding: 0 4px; color: var(--tinta-suave); }
+  .btn-cronica {
+    display: block; position: fixed; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 14;
+    background: linear-gradient(#2f241a, #1f1711); color: #ead9b4; border: 1px solid var(--oro);
+    border-radius: 999px; padding: 8px 14px; font-variant: small-caps; box-shadow: 0 4px 12px #0006;
+  }
+  body.cronica-abierta .btn-cronica { display: none; }
+  .cronica-flotante {
+    display: block; position: fixed; left: 12px; right: 12px; top: calc(8px + env(safe-area-inset-top)); z-index: 16;
+    background: #1f1711ee; color: #f3e6c8; border: 1px solid var(--oro); border-radius: 4px;
+    padding: 8px 12px; font-size: 13.5px; line-height: 1.35; box-shadow: 0 6px 18px #0007;
+    opacity: 0; transform: translateY(-12px); pointer-events: none; transition: opacity 0.3s, transform 0.3s;
+  }
+  .cronica-flotante.visible { opacity: 1; transform: none; }
+  .cronica-flotante div + div { margin-top: 4px; padding-top: 4px; border-top: 1px solid #ead9b433; }
+  .cronica-flotante .herida, .cronica-flotante .fin { color: #ffb3a6; font-weight: bold; }
+  .tablero { padding-bottom: 64px; }
+}
+
 </style>
 </head>
 <body>
@@ -356,12 +417,14 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--sangre); }
       <section id="centro" class="centro"></section>
       <section id="zona-abajo" class="zona zona-abajo"></section>
     </main>
-    <aside class="registro">
-      <h2>Desarrollo del combate</h2>
+    <aside class="registro" id="registro">
+      <h2>Desarrollo del combate <button class="cerrar-cronica" data-accion="cronica" aria-label="Cerrar la crónica">×</button></h2>
       <ol id="registro-lista"></ol>
     </aside>
   </div>
 
+  <div id="cronica-flotante" class="cronica-flotante" aria-live="polite"></div>
+  <button class="btn-cronica" data-accion="cronica" aria-label="Ver la crónica del combate">Crónica</button>
   <div id="aviso" class="aviso" hidden></div>
   <div id="detalle" class="detalle" hidden></div>
 
@@ -1699,22 +1762,33 @@ function soltarEnSerie(inst, k) {
   ui.seleccion = cand;
   ui.mensaje = null;
   deducirObjetivo();
-  render();
+  if (!jugarSiCerrada()) render();
 }
 
-/** Soltar una carta sobre una carta rival juega la respuesta en el acto (con la serie ya preparada detrás, si la hay). */
+/**
+ * Tras soltar una carta en el tablero: si la serie ya es válida y su última carta no tiene flechas
+ * (no puede alargarse: Estocada, Cuchillada, Reparo, Compás), se juega en el acto.
+ */
+function jugarSiCerrada() {
+  if (!ui.seleccion.length) return false;
+  const ultima = defDe(ui.config, ui.seleccion[ui.seleccion.length - 1]);
+  if (ultima.flechas.length || !estadoSeleccion().valida) return false;
+  jugar(jugadaActual());
+  return true;
+}
+
+/** Soltar una carta sobre una carta rival: empieza ahí la respuesta (con la serie ya preparada detrás, si encaja). */
 function soltarEnRival(inst, indice) {
   const r = respuestaSobreRival(inst, indice);
   if (!r.valida) {
     avisar(r.motivo);
     return render();
   }
-  if (r.recortada) {
-    const nombre = defDe(ui.config, inst).nombre;
-    avisar(`No se juega: tu serie preparada no puede ir detrás de ${nombre} contra esa carta. Quita cartas de "Tu respuesta" o suelta otra carta.`);
-    return render();
-  }
-  jugar({ tipo: 'intervenir', indice, cartas: r.cartas });
+  ui.seleccion = r.cartas;
+  ui.objetivo = indice;
+  ui.objetivoFijado = true;
+  ui.mensaje = r.recortada ? { texto: 'El resto de tu serie no encajaba detrás: empiezas una respuesta nueva con esta carta.', tipo: 'info' } : null;
+  if (!jugarSiCerrada()) render();
 }
 
 function soltarEnMano(inst) {
@@ -1728,6 +1802,8 @@ function soltarEnMano(inst) {
 /** Marca, durante el arrastre, dónde encaja la carta y dónde no. */
 function marcarDestinos(inst) {
   document.body.classList.add('arrastrando');
+  const p = $('#pista');
+  p.classList.add(comprobarSeleccion(candidataEnPosicion(inst, ui.seleccion.length)).valida ? 'encaja' : 'no-encaja');
   for (const h of document.querySelectorAll('[data-hueco]')) {
     const ok = comprobarSeleccion(candidataEnPosicion(inst, Number(h.dataset.hueco))).valida;
     h.classList.add(ok ? 'encaja' : 'no-encaja');
@@ -1761,6 +1837,8 @@ function destinoDe(objetivo) {
   if (rival && rival.dataset.rival !== '' && ui.estado.fase === 'responder') return { tipo: 'rival', indice: Number(rival.dataset.rival), el: rival };
   const mano = objetivo.closest('[data-soltar-mano]');
   if (mano) return { tipo: 'mano', el: mano };
+  const pista = objetivo.closest('#pista');
+  if (pista) return { tipo: 'serie', k: ui.seleccion.length, el: pista };
   return null;
 }
 
@@ -1804,8 +1882,15 @@ function enlazarTactil() {
   document.addEventListener('pointermove', (ev) => {
     if (!toque) return;
     if (!toque.arrastrando) {
-      if (Math.hypot(ev.clientX - toque.x0, ev.clientY - toque.y0) < 10) return;
+      const dx = ev.clientX - toque.x0;
+      const dy = ev.clientY - toque.y0;
+      if (Math.hypot(dx, dy) < 10) return;
       clearTimeout(toque.temporizador);
+      // En la mano, el gesto de lado es para desplazarla (lo hace el navegador), no para arrastrar.
+      if (toque.carta.closest('.mano-cartas') && Math.abs(dx) > Math.abs(dy)) {
+        toque = null;
+        return;
+      }
       if (!toque.inst || toque.largo || !puedeActuar()) {
         toque = null; // gesto normal (desplazar la página)
         return;
@@ -1830,6 +1915,16 @@ function enlazarTactil() {
   }, { passive: false });
   document.addEventListener('pointerup', (ev) => terminar(true, ev));
   document.addEventListener('pointercancel', (ev) => terminar(false, ev));
+}
+
+/** Con la rueda del ratón sobre la mano, se desplaza de lado. */
+function enlazarRuedaMano() {
+  document.addEventListener('wheel', (ev) => {
+    const fila = ev.target.closest?.('.mano:not(.mano-oculta) .mano-cartas');
+    if (!fila || fila.scrollWidth <= fila.clientWidth || Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) return;
+    ev.preventDefault();
+    fila.scrollLeft += ev.deltaY;
+  }, { passive: false });
 }
 
 function enlazarArrastre() {
@@ -2003,16 +2098,38 @@ function registrar(ev, antes) {
   ui.registro.push({ texto: t, jugador: j, tipo: ev.tipo });
 }
 
+// ---------- Crónica flotante (móvil) ----------
+
+let cronicaVista = 0; // entradas ya mostradas en el aviso flotante
+let temporizadorCronica = null;
+
+/** Muestra un momento los dos últimos movimientos nuevos; la crónica completa se despliega con su botón. */
+function avisarCronica() {
+  const caja = $('#cronica-flotante');
+  if (ui.registro.length < cronicaVista) cronicaVista = 0; // partida nueva
+  const nuevas = ui.registro.slice(cronicaVista).filter((r) => r.tipo !== 'robo' && r.tipo !== 'inicio');
+  cronicaVista = ui.registro.length;
+  if (!nuevas.length) return;
+  caja.innerHTML = nuevas.slice(-2).map((r) => `<div class="${r.jugador ?? ''} ${r.tipo}">${r.texto}</div>`).join('');
+  caja.classList.add('visible');
+  clearTimeout(temporizadorCronica);
+  temporizadorCronica = setTimeout(() => caja.classList.remove('visible'), 4500);
+}
+
 // ---------- Render ----------
 
 function render() {
   const e = ui.pausa ? ui.pausa.estado : ui.estado;
   $('#marcador').innerHTML = htmlMarcador(ui.estado);
   document.body.classList.toggle('desde-derecha', ui.abajo === 'negro');
+  // Conserva el desplazamiento horizontal de las manos al redibujar.
+  const desplazamiento = ['#zona-arriba', '#zona-abajo'].map((z) => $(`${z} .mano-cartas`)?.scrollLeft ?? 0);
   $('#zona-arriba').innerHTML = htmlZona(e, RIVAL[ui.abajo]);
   $('#zona-abajo').innerHTML = htmlZona(e, ui.abajo);
+  ['#zona-arriba', '#zona-abajo'].forEach((z, i) => { const f = $(`${z} .mano-cartas`); if (f) f.scrollLeft = desplazamiento[i]; });
   $('#pista').innerHTML = htmlPista(e);
   $('#centro').innerHTML = htmlCentro();
+  avisarCronica();
   const reg = $('#registro-lista');
   reg.innerHTML = ui.registro.map((r) => `<li class="${r.jugador ?? ''} ${r.tipo}">${r.texto}</li>`).join('');
   reg.scrollTop = reg.scrollHeight;
@@ -2058,7 +2175,7 @@ function htmlZona(e, j) {
     if (humano) {
       const pos = ui.seleccion.indexOf(inst);
       if (pos >= 0) {
-        clases.push('seleccionada');
+        clases.push('en-tablero');
         insignia = String(pos + 1);
         titulo = `${d.nombre}: pulsa para quitarla de la serie`;
       } else {
@@ -2093,8 +2210,15 @@ function htmlZona(e, j) {
  * la carta intervenida se ve roja y las demás, gris oscuro.
  */
 function htmlPista(e) {
-  const { columnas, filas } = calcularPista(e.mesa);
   const sd = e.serieDeclarada;
+  // La serie que se está formando se dibuja en la pista, en su sitio, como provisional.
+  const mesa = { blanco: [...e.mesa.blanco], negro: [...e.mesa.negro] };
+  const formando = !ui.pausa && ui.seleccion.length && e.fase !== 'fin' && !esOrdenador(e.turno) && !manoOculta(e.turno);
+  if (formando) {
+    const contra = e.fase === 'responder' && ui.objetivo !== null ? { grupo: sd.grupo, indice: ui.objetivo } : null;
+    mesa[e.turno].push({ cartas: [...ui.seleccion], estados: ui.seleccion.map(() => 'provisional'), orden: 1e9, contra, intervenida: null, provisional: true });
+  }
+  const { columnas, filas } = calcularPista(mesa);
   const intervenibles = e.fase === 'responder' ? indicesIntervenibles(e) : [];
   const eligeHumano = !ui.pausa && e.fase === 'responder' && !esOrdenador(e.turno) && !manoOculta(e.turno);
 
@@ -2102,8 +2226,19 @@ function htmlPista(e) {
     const oscura = j === 'negro';
     let activa = false;
     const celdas = [];
+    let provisional = false;
     for (const { gi, col } of fila.grupos) {
-      const g = e.mesa[j][gi];
+      const g = mesa[j][gi];
+      const columnaDe = (ci) => (ui.abajo === 'negro' ? columnas - (col + ci) : col + ci + 1);
+      if (g.provisional) {
+        provisional = true;
+        g.cartas.forEach((inst, ci) => {
+          const d = defDe(ui.config, inst);
+          const titulo = `${d.nombre}: arrástrala para moverla o devolverla a la mano; tócala para quitarla junto con las siguientes`;
+          celdas.push(`<div class="hueco celda" style="grid-row:1;grid-column:${columnaDe(ci)}" data-serie-pos="${ci}" data-mano="${inst}">${htmlCarta(d, { oscura, inst, clases: ['provisional', 'tocable'], titulo, insignia: String(ci + 1), arrastrable: !TACTIL })}</div>`);
+        });
+        continue;
+      }
       const esDeclarada = sd && sd.jugador === j && sd.grupo === gi;
       if (esDeclarada) activa = true;
       g.cartas.forEach((inst, ci) => {
@@ -2138,11 +2273,11 @@ function htmlPista(e) {
         celdas.push(`<div class="hueco celda" style="grid-row:1;grid-column:${columna}" data-rival="${rival}">${primera}${htmlCarta(d, { oscura, clases, titulo, insignia })}</div>`);
       });
     }
-    return `<div class="fila ${j} ${activa ? 'activa' : 'apagada'}" style="grid-template-columns:repeat(${Math.max(columnas, 1)}, var(--wp))">${celdas.join('')}</div>`;
+    return `<div class="fila ${j} ${activa ? 'activa' : 'apagada'}${provisional ? ' con-provisional' : ''}" style="grid-template-columns:repeat(${Math.max(columnas, 1)}, var(--wp))">${celdas.join('')}</div>`;
   };
 
-  if (!e.mesa.blanco.length && !e.mesa.negro.length) {
-    return '<div class="pista-vacia">La pista está vacía: el combate empieza con la primera serie.</div>';
+  if (!mesa.blanco.length && !mesa.negro.length) {
+    return '<div class="pista-vacia">La pista está vacía: el combate empieza con la primera serie. Toca o arrastra aquí cartas de tu mano.</div>';
   }
   const arriba = RIVAL[ui.abajo];
   const filasArriba = filas[arriba].map((f) => htmlFila(arriba, f)).reverse().join('');
@@ -2194,7 +2329,7 @@ function htmlCentro() {
         ? `${N[sd.jugador]} para con un ${defDe(ui.config, sd.cartas[0]).nombre}, que no hiere. Tienes que contestarlo: intervén el ${defDe(ui.config, sd.cartas[0]).nombre} con una serie que termine hiriendo.${robadas ? ` Has robado ${robadas === 1 ? '1 carta' : `${robadas} cartas`} para poder hacerlo.` : ''}`
       : parada
         ? `${N[sd.jugador]} para con un ${defDe(ui.config, sd.cartas[0]).nombre}, que no hiere. Contéstalo o deja que haya punto muerto: se reparte de nuevo y declaras tú.`
-        : `Responde a la serie de ${N[sd.jugador]}: suelta una carta tuya sobre la suya para jugarla (si preparas antes una serie en "Tu respuesta", se juega entera), o pulsa su carta, forma la respuesta y pulsa Intervenir. También puedes no intervenir.`;
+        : `Responde a la serie de ${N[sd.jugador]}: toca la carta suya que quieres intervenir (o suelta encima una de las tuyas) y forma tu respuesta en la pista. Si la serie queda cerrada, por ejemplo con una Estocada, se juega al soltarla; si no, pulsa Intervenir. También puedes no intervenir.`;
     if (!hay) {
       instruccion = pasoAtras
         ? 'No puedes cortar el paso atrás (no te queda ninguna Estocada): se cumplirá.'
@@ -2214,7 +2349,8 @@ function htmlCentro() {
     const objetivo = e.fase === 'responder' && ui.objetivo !== null ? ` contra ${defDe(ui.config, sd.cartas[ui.objetivo]).nombre}` : '';
     lineaSerie = `<div class="serie-en-curso">Tu ${e.fase === 'declarar' ? 'serie' : 'respuesta'}${objetivo}: <strong>${nombres(ui.seleccion)}</strong> · suma ${sumaSel} <span class="${sel.valida ? 'ok' : 'mal'}">${sel.valida ? '✔ válida' : `✖ ${sel.motivo}`}</span></div>`;
   }
-  const franja = e.fase === 'declarar' || hayIntervencionLegal(e) ? htmlFranja(j === 'negro') : '';
+  const puedeJugar = e.fase === 'declarar' || hayIntervencionLegal(e);
+  const franja = puedeJugar && !ui.seleccion.length ? `<div class="ayuda-serie">Toca las cartas de tu mano o arrástralas a la pista para formar tu ${e.fase === 'declarar' ? 'serie' : 'respuesta'}.</div>` : '';
   const msg = ui.mensaje ? `<div class="mensaje ${ui.mensaje.tipo}">${ui.mensaje.texto}</div>` : '';
   return `<div class="estado-turno"><span class="ficha ${j}"></span><strong>Turno de ${N[j]}</strong> · ${instruccion}</div>${franja}${lineaSerie}${msg}<div class="botones">${botones.join('')}</div>`;
 }
@@ -2359,6 +2495,7 @@ function enlazarEventos() {
       else if (a === 'deshacer') { ui.seleccion.pop(); if (!ui.seleccion.length && !ui.objetivoFijado) ui.objetivo = null; ui.mensaje = null; render(); }
       else if (a === 'limpiar') { limpiarSeleccion(); ui.mensaje = null; render(); }
       else if (a === 'continuar') continuar();
+      else if (a === 'cronica') { document.body.classList.toggle('cronica-abierta'); $('#cronica-flotante').classList.remove('visible'); }
       else if (a === 'ver-mano') { ui.manoVisible = true; render(); }
       else if (a === 'nueva') abrirNuevaPartida();
       else if (a === 'reglas') $('#dlg-reglas').showModal();
@@ -2402,6 +2539,7 @@ async function iniciar() {
   enlazarEventos();
   enlazarArrastre();
   enlazarTactil();
+  enlazarRuedaMano();
   // App instalable (PWA): solo cuando se sirve por https (GitHub Pages), no en desarrollo.
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
   ui.config = crearConfig(ui.datos.cartas, ui.datos.ajustes);
