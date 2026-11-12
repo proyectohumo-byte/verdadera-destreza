@@ -358,7 +358,7 @@ body.arrastrando #pista.no-encaja { box-shadow: inset 0 0 0 4px var(--papel-clar
   padding-inline: calc(var(--w) * 0.3); padding-bottom: 6px;
 }
 .mano:not(.mano-oculta) .mano-cartas .hueco { scroll-snap-align: start; flex-shrink: 0; }
-.mano .carta.tocable { touch-action: pan-x; }
+.mano .carta.tocable { touch-action: none; } /* el juego gestiona deslizar y arrastrar */
 .mano-cartas { scrollbar-width: thin; scrollbar-color: var(--tinta-tenue) transparent; }
 @media (pointer: coarse) {
   .mano-cartas { scrollbar-width: none; }
@@ -442,6 +442,9 @@ button.negativo:hover { background: linear-gradient(#7d211c, #5a1410); }
 /* La cabecera con las vidas se queda fija arriba al desplazarse */
 .cabecera { position: sticky; top: 0; z-index: 12; }
 @media (max-width: 700px) { .cabecera { top: env(safe-area-inset-top); } }
+
+/* Carta sujeta con el dedo: lista para arrastrar */
+.carta.sujeta { transform: translateY(-8px) scale(1.06); box-shadow: 0 0 0 2px var(--oro-claro), 0 10px 20px #2a1f1666; }
 
 </style>
 </head>
@@ -1900,11 +1903,29 @@ function destinoDe(objetivo) {
 let ultimoGestoTactil = 0; // para ignorar el "clic" que el navegador genera al soltar
 
 function enlazarTactil() {
+  // Gestos con el dedo (todo lo gestiona el juego, las cartas no dejan que el navegador desplace):
+  //  - tocar: añade la carta (es el "clic" normal);
+  //  - mantener pulsada y mover: arrastrar la carta (se levanta al sujetarla);
+  //  - deslizar rápido de lado en la mano: desplazarla;
+  //  - arrastrar rápido hacia arriba o abajo: arrastrar la carta;
+  //  - mantener pulsada y soltar sin mover: verla en grande.
   let toque = null;
+  const empezarArrastre = (ev) => {
+    toque.modo = 'arrastrar';
+    arrastre = { inst: toque.inst, x: ev.clientX };
+    const r = toque.carta.getBoundingClientRect();
+    toque.fantasma = toque.carta.cloneNode(true);
+    toque.fantasma.classList.remove('sujeta');
+    toque.fantasma.classList.add('fantasma');
+    toque.fantasma.style.width = `${r.width}px`;
+    document.body.appendChild(toque.fantasma);
+    marcarDestinos(toque.inst);
+  };
   const terminar = (soltar, ev) => {
     if (!toque) return;
     clearTimeout(toque.temporizador);
-    if (toque.arrastrando) {
+    toque.carta.classList.remove('sujeta');
+    if (toque.modo === 'arrastrar') {
       toque.fantasma.remove();
       const bajo = soltar ? document.elementFromPoint(ev.clientX, ev.clientY) : null;
       const d = bajo ? destinoDe(bajo) : null;
@@ -1914,8 +1935,10 @@ function enlazarTactil() {
       if (d?.tipo === 'serie') soltarEnSerie(inst, d.k);
       else if (d?.tipo === 'rival') soltarEnRival(inst, d.indice);
       else if (d?.tipo === 'mano') soltarEnMano(inst);
+    } else if (!toque.modo && toque.sujeta && soltar) {
+      mostrarDetalle(toque.carta.dataset.carta, toque.carta.classList.contains('oscura'));
     }
-    if (toque.arrastrando || toque.largo) ultimoGestoTactil = Date.now();
+    if (toque.modo || toque.sujeta) ultimoGestoTactil = Date.now();
     toque = null;
   };
   document.addEventListener('pointerdown', (ev) => {
@@ -1923,39 +1946,32 @@ function enlazarTactil() {
     const carta = ev.target.closest('.carta[data-carta]');
     if (!carta || carta.closest('#detalle')) return;
     const inst = carta.closest('[data-mano]')?.dataset.mano || null;
-    toque = { x0: ev.clientX, y0: ev.clientY, carta, inst, arrastrando: false, largo: false };
+    const fila = carta.closest('.mano-cartas');
+    toque = { x0: ev.clientX, y0: ev.clientY, carta, inst, fila, scroll0: fila?.scrollLeft ?? 0, modo: null, sujeta: false };
     toque.temporizador = setTimeout(() => {
-      if (!toque || toque.arrastrando) return;
-      toque.largo = true;
-      mostrarDetalle(carta.dataset.carta, carta.classList.contains('oscura'));
-    }, 450);
+      if (!toque || toque.modo) return;
+      toque.sujeta = true;
+      if (toque.inst && puedeActuar()) carta.classList.add('sujeta'); // ya se puede arrastrar
+    }, 350);
   });
   document.addEventListener('pointermove', (ev) => {
     if (!toque) return;
-    if (!toque.arrastrando) {
-      const dx = ev.clientX - toque.x0;
-      const dy = ev.clientY - toque.y0;
-      if (Math.hypot(dx, dy) < 10) return;
+    const dx = ev.clientX - toque.x0;
+    const dy = ev.clientY - toque.y0;
+    if (!toque.modo) {
+      if (Math.hypot(dx, dy) < 8) return;
       clearTimeout(toque.temporizador);
-      // En la mano, el gesto de lado es para desplazarla (lo hace el navegador), no para arrastrar.
-      if (toque.carta.closest('.mano-cartas') && Math.abs(dx) > Math.abs(dy)) {
-        toque = null;
-        return;
-      }
-      if (!toque.inst || toque.largo || !puedeActuar()) {
-        toque = null; // gesto normal (desplazar la página)
-        return;
-      }
-      toque.arrastrando = true;
-      arrastre = { inst: toque.inst, x: ev.clientX };
-      const r = toque.carta.getBoundingClientRect();
-      toque.fantasma = toque.carta.cloneNode(true);
-      toque.fantasma.classList.add('fantasma');
-      toque.fantasma.style.width = `${r.width}px`;
-      document.body.appendChild(toque.fantasma);
-      marcarDestinos(toque.inst);
+      const arrastrable = toque.inst && puedeActuar();
+      if (toque.sujeta && arrastrable) empezarArrastre(ev);
+      else if (toque.fila && Math.abs(dx) > Math.abs(dy)) toque.modo = 'desplazar';
+      else if (arrastrable) empezarArrastre(ev);
+      else { toque.carta.classList.remove('sujeta'); toque = null; return; }
     }
     ev.preventDefault();
+    if (toque.modo === 'desplazar') {
+      toque.fila.scrollLeft = toque.scroll0 - dx;
+      return;
+    }
     arrastre.x = ev.clientX;
     toque.fantasma.style.left = `${ev.clientX}px`;
     toque.fantasma.style.top = `${ev.clientY}px`;
