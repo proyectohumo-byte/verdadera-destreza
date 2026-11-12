@@ -1795,7 +1795,7 @@ function soltarEnSerie(inst, k) {
   ui.seleccion = cand;
   ui.mensaje = null;
   deducirObjetivo();
-  if (!jugarSiCerrada()) render();
+  render(); // nunca se juega sola: se confirma con el ✓ verde de la pista
 }
 
 /**
@@ -1821,7 +1821,7 @@ function soltarEnRival(inst, indice) {
   ui.objetivo = indice;
   ui.objetivoFijado = true;
   ui.mensaje = r.recortada ? { texto: 'El resto de tu serie no encajaba detrás: empiezas una respuesta nueva con esta carta.', tipo: 'info' } : null;
-  if (!jugarSiCerrada()) render();
+  render(); // nunca se juega sola: se confirma con el ✓ verde de la pista
 }
 
 function soltarEnMano(inst) {
