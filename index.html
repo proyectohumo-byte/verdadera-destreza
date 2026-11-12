@@ -532,7 +532,7 @@ button.negativo:hover { background: linear-gradient(#7d211c, #5a1410); }
       <li>Al intervenir, las cartas rivales anteriores a la elegida quedan <b>gastadas</b> y la elegida y las siguientes quedan <b>bloqueadas</b>. Tu respuesta pasa a ser la serie declarada.</li>
       <li><b>Herida</b>: si no intervienes (o no puedes), la serie te hiere: suma de sus cartas (+2 de Cuchillada) + 1 por la carta a la que se enfrentó (sin ese +1 si es la primera serie del combate). Cada esgrimista tiene 10 de vida.</li>
       <li>Tras una herida, todo vuelve a empezar salvo las vidas, y declara quien hirió.</li>
-      <li><b>Reparo, una parada mala</b>: no hiere, pero <b>hay que contestarlo</b>: no se puede dejar pasar. Si no tienes con qué, robas de tu pila de una en una hasta poder intervenir el Reparo con una serie que termine hiriendo. Solo si se te acaba la pila sin poder, se recoge todo y declaras tú.</li>
+      <li><b>Reparo, una parada mala</b>: no hiere, pero <b>hay que contestarlo</b>: no se puede dejar pasar. Si no tienes con qué atacar, robas de tu pila de una en una hasta poder intervenir el Reparo con una serie que termine hiriendo (el paso atrás no cuenta: siempre es optativo). Solo si se te acaba la pila sin poder, se recoge todo y declaras tú.</li>
       <li><b>Estocada contra Estocada: golpe doble</b>. Los dos pierden 1 punto y declara quien tiró la primera estocada. Si los dos llegan a 0 a la vez, empate. La Estocada gana al tajo (Cuchillada) por alcance; el tajo es más contundente (+2).</li>
       <li><b>Paso atrás (Compás extraño)</b>: responde a cualquier carta. Solo una Estocada puede cortarlo. Si nadie lo corta, todas las cartas vuelven a las manos sin herida y declara quien no lo dio. Cada uno puede darlo una vez entre heridas (un paso atrás cortado también cuenta).</li>
     </ol>
@@ -998,7 +998,7 @@ function comprobarJugada(estado, jugada, opciones = {}) {
     }
     case 'noIntervenir':
       if (estado.fase !== 'responder') return no('No hay ninguna serie rival que intervenir');
-      if (reparoObligatorio(estado) && hayIntervencionLegal(estado)) return no('Tienes que contestar el Reparo');
+      if (reparoObligatorio(estado) && hayIntervencionLegal(estado, { sinPasoAtras: true })) return no('Tienes que contestar el Reparo');
       return { valida: true };
     default:
       return no('Jugada desconocida');
@@ -1096,7 +1096,7 @@ function reparoObligatorio(e) {
 function robarParaContestar(e) {
   const j = e.turno;
   let n = 0;
-  while (!hayIntervencionLegal(e) && e.pila[j].length) {
+  while (!hayIntervencionLegal(e, { sinPasoAtras: true }) && e.pila[j].length) {
     e.mano[j] = [...e.mano[j], e.pila[j][0]];
     e.pila[j] = e.pila[j].slice(1);
     n++;
@@ -1323,7 +1323,7 @@ function jugadasLegales(estado) {
       for (const ids of cadenasCompletas(cfg, conteo, id)) res.push({ tipo: 'intervenir', indice, cartas: aInstancias(cfg, mano, ids) });
     }
   }
-  if (!(reparoObligatorio(estado) && res.length)) res.push({ tipo: 'noIntervenir' });
+  if (!(reparoObligatorio(estado) && hayIntervencionLegal(estado, { sinPasoAtras: true }))) res.push({ tipo: 'noIntervenir' });
   return res;
 }
 
@@ -1347,8 +1347,11 @@ function primeraValida(def, serie, indice, suma, pasoAtrasDisponible) {
   return true;
 }
 
-/** ¿Tiene quien responde alguna intervención legal? */
-function hayIntervencionLegal(estado) {
+/**
+ * ¿Tiene quien responde alguna intervención legal? opciones.sinPasoAtras: sin contar el paso atrás
+ * (para la obligación de contestar un Reparo, el paso atrás es optativo y no cuenta).
+ */
+function hayIntervencionLegal(estado, opciones = {}) {
   if (estado.fase !== 'responder') return false;
   const cfg = estado.config;
   const j = estado.turno;
@@ -1357,6 +1360,7 @@ function hayIntervencionLegal(estado) {
   const conteo = conteoPorCarta(cfg, estado.mano[j]);
   for (let indice = 0; indice < serie.length; indice++) {
     for (const id of Object.keys(conteo)) {
+      if (opciones.sinPasoAtras && cfg.cartas[id].pasoAtras) continue;
       if (primeraValida(cfg.cartas[id], serie, indice, suma, estado.pasoAtrasDisponible[j]) && tieneSerieCompleta(cfg, conteo, id)) return true;
     }
   }
@@ -2281,7 +2285,7 @@ function htmlAccionesMano(e, j, activo, oculta) {
   const pasoAtras = esPasoAtras(ui.config, sd.cartas);
   const parada = esParadaSinHerida(ui.config, sd.cartas);
   const hay = hayIntervencionLegal(e);
-  if (parada && hay && ui.config.ajustes.reparoSinRespuesta === 'contestar') return '';
+  if (parada && hayIntervencionLegal(e, { sinPasoAtras: true }) && ui.config.ajustes.reparoSinRespuesta === 'contestar') return '';
   const etiqueta = hay
     ? (pasoAtras ? 'Dejar que se cumpla el paso atrás' : parada ? 'No contestar (punto muerto)' : `No intervenir (recibes ${puntos(dano)})`)
     : (pasoAtras ? 'No puedes cortar el paso atrás: aceptar' : parada ? 'No puedes contestar: punto muerto' : `No puedes intervenir: recibes ${puntos(dano)}`);
