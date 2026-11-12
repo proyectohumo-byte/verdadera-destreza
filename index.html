@@ -412,6 +412,23 @@ body.desde-derecha .tic-confirmar { right: auto; left: -16px; }
 @keyframes latido { 0%, 100% { transform: translateY(-50%) scale(1); } 50% { transform: translateY(-50%) scale(1.12); } }
 @media (max-width: 700px) { .tic-confirmar { width: 30px; height: 30px; font-size: 18px; right: -14px; } }
 
+/* ---------- Sin panel central: acciones bajo la mano y avisos flotantes ---------- */
+.centro:empty { display: none; }
+.acciones-mano { display: flex; justify-content: center; padding: 6px 0 2px; }
+.acciones-mano button { min-width: 220px; }
+.pensando { font-style: italic; font-variant: normal; font-size: 0.85em; color: var(--oro-claro); animation: parpadeo 1.2s ease-in-out infinite; }
+@keyframes parpadeo { 50% { opacity: 0.35; } }
+.mensaje-flotante {
+  position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); z-index: 17; max-width: min(560px, calc(100vw - 24px));
+  transform: translate(-50%, 12px); opacity: 0; pointer-events: none; transition: opacity 0.3s, transform 0.3s;
+  padding: 9px 16px; border-radius: 4px; font-size: 14.5px; font-style: italic; text-align: center;
+  background: var(--papel-claro); color: var(--tinta); border: 1px solid var(--tinta-tenue); box-shadow: 0 6px 18px #2a1f1666;
+}
+.mensaje-flotante.visible { opacity: 1; transform: translate(-50%, 0); }
+.mensaje-flotante.error { border-left: 4px solid var(--sangre); color: var(--sangre); }
+.mensaje-flotante.info { border-left: 4px solid var(--oro); }
+@media (max-width: 1200px) { .mensaje-flotante { bottom: calc(64px + env(safe-area-inset-bottom)); } }
+
 </style>
 </head>
 <body>
@@ -438,6 +455,7 @@ body.desde-derecha .tic-confirmar { right: auto; left: -16px; }
     </aside>
   </div>
 
+  <div id="mensaje-flotante" class="mensaje-flotante" role="status"></div>
   <div id="cronica-flotante" class="cronica-flotante" aria-live="polite"></div>
   <button class="btn-cronica" data-accion="cronica" aria-label="Ver la crónica del combate">Crónica</button>
   <div id="aviso" class="aviso" hidden></div>
@@ -2143,7 +2161,8 @@ function render() {
   $('#zona-abajo').innerHTML = htmlZona(e, ui.abajo);
   ['#zona-arriba', '#zona-abajo'].forEach((z, i) => { const f = $(`${z} .mano-cartas`); if (f) f.scrollLeft = desplazamiento[i]; });
   $('#pista').innerHTML = htmlPista(e);
-  $('#centro').innerHTML = htmlCentro();
+  $('#centro').innerHTML = ''; // sin panel: el turno lo marca el marcador y las acciones van bajo la mano
+  mostrarMensaje();
   avisarCronica();
   const reg = $('#registro-lista');
   reg.innerHTML = ui.registro.map((r) => `<li class="${r.jugador ?? ''} ${r.tipo}">${r.texto}</li>`).join('');
@@ -2166,7 +2185,7 @@ function htmlMarcador(e) {
     const segs = Array.from({ length: max }, (_, i) => `<span class="${i < v ? 'llena' : ''}"></span>`).join('');
     const quien = ui.modo === 'ordenador' ? (j === ui.ladoOrdenador ? ' (ordenador)' : ' (tú)') : '';
     return `<div class="vida ${j} ${e.turno === j && e.fase !== 'fin' ? 'activo' : ''}">
-      <div class="vida-nombre">${N[j]}${quien}</div>
+      <div class="vida-nombre">${N[j]}${quien}${e.turno === j && e.fase !== 'fin' && esOrdenador(j) && !ui.pausa ? ' <span class="pensando">pensando…</span>' : ''}</div>
       <div class="vida-barra" title="${v} de ${max} puntos de vida">${segs}</div>
       <div class="vida-num">${v}</div>
       <div class="paso ${e.pasoAtrasDisponible[j] ? 'si' : 'no'}" title="${e.pasoAtrasDisponible[j] ? 'Paso atrás disponible' : 'Paso atrás usado: vuelve tras una herida'}">Paso atrás: ${e.pasoAtrasDisponible[j] ? 'disponible' : 'usado'}</div>
@@ -2216,7 +2235,43 @@ function htmlZona(e, j) {
   const pila = ui.config.ajustes.tamanoMano ? ` · pila de robo: ${e.pila[j].length}` : '';
   const rotulo = `Mano de ${N[j]} · ${n} ${n === 1 ? 'carta' : 'cartas'}${oculta ? ' boca abajo' : ''}${pila}`;
   const mano = `<div class="mano ${humano ? 'mano-activa' : ''} ${oculta ? 'mano-oculta' : ''}"${humano ? ' data-soltar-mano' : ''}><div class="rotulo">${rotulo}</div><div class="mano-cartas">${contenido}</div></div>`;
-  return mano;
+  return mano + htmlAccionesMano(e, j, activo, oculta);
+}
+
+/**
+ * Acciones bajo la mano de quien tiene el turno: "No intervenir" (solo mientras no haya puesto
+ * ninguna carta en la mesa) y, entre dos jugadores, "Ver mi mano".
+ */
+function htmlAccionesMano(e, j, activo, oculta) {
+  if (!activo || esOrdenador(j)) return '';
+  if (oculta) return `<div class="acciones-mano"><button class="principal" data-accion="ver-mano">Ver la mano de ${N[j]}</button></div>`;
+  if (e.fase !== 'responder' || ui.seleccion.length) return '';
+  const sd = e.serieDeclarada;
+  const dano = danoPendiente(e).dano;
+  const pasoAtras = esPasoAtras(ui.config, sd.cartas);
+  const parada = esParadaSinHerida(ui.config, sd.cartas);
+  const hay = hayIntervencionLegal(e);
+  if (parada && hay && ui.config.ajustes.reparoSinRespuesta === 'contestar') return '';
+  const etiqueta = hay
+    ? (pasoAtras ? 'Dejar que se cumpla el paso atrás' : parada ? 'No contestar (punto muerto)' : `No intervenir (recibes ${puntos(dano)})`)
+    : (pasoAtras ? 'No puedes cortar el paso atrás: aceptar' : parada ? 'No puedes contestar: punto muerto' : `No puedes intervenir: recibes ${puntos(dano)}`);
+  return `<div class="acciones-mano"><button class="${hay ? 'secundario' : 'principal'}" data-accion="pasar">${etiqueta}</button></div>`;
+}
+
+// ---------- Mensajes flotantes (avisos y errores) ----------
+
+let temporizadorMensaje = null;
+let ultimoMensaje = null;
+
+function mostrarMensaje() {
+  const caja = $('#mensaje-flotante');
+  if (!caja || ui.mensaje === ultimoMensaje) return;
+  ultimoMensaje = ui.mensaje;
+  if (!ui.mensaje) { caja.classList.remove('visible'); return; }
+  caja.className = `mensaje-flotante visible ${ui.mensaje.tipo}`;
+  caja.textContent = ui.mensaje.texto;
+  clearTimeout(temporizadorMensaje);
+  temporizadorMensaje = setTimeout(() => caja.classList.remove('visible'), 4500);
 }
 
 /**
