@@ -1186,7 +1186,10 @@ function golpeDoble(e, quienResponde, carta) {
   const dano = defDe(e.config, carta).danoGolpeDoble ?? 1;
   for (const j of ['blanco', 'negro']) e.vida[j] = Math.max(0, e.vida[j] - dano);
   e.contadores.golpesDobles = (e.contadores.golpesDobles ?? 0) + 1;
-  e.eventos.push({ tipo: 'golpeDoble', jugador: quienResponde, primero, dano, vida: { ...e.vida } });
+  // La mesa tal como quedó (con la Estocada de la respuesta) para poder mostrarla antes de recoger.
+  const mesa = JSON.parse(JSON.stringify(e.mesa));
+  const mano = JSON.parse(JSON.stringify(e.mano));
+  e.eventos.push({ tipo: 'golpeDoble', jugador: quienResponde, primero, dano, vida: { ...e.vida }, mesa, mano });
   const muertos = ['blanco', 'negro'].filter((j) => e.vida[j] <= 0);
   if (muertos.length) {
     e.fase = 'fin';
@@ -2070,7 +2073,7 @@ function jugar(jugada) {
     const texto = `Estocada contra Estocada: los dos se alcanzan a la vez y pierden ${puntos(doble.dano)}. Vida de Blanco: ${doble.vida.blanco}; de Negro: ${doble.vida.negro}.`;
     ui.pausa = despues.fase === 'fin'
       ? { estado: antes, titulo: despues.empate ? '¡Empate!' : `¡Gana ${N[despues.ganador]}!`, texto: `${texto} ${despues.empate ? 'Los dos se quedan a 0 a la vez.' : ''}`, fin: true }
-      : { estado: antes, titulo: 'Golpe doble', texto: `${texto} ${textoReparto()} Ambos recuperan el paso atrás. Declara ${N[doble.primero]}, que tiraba la primera estocada.` };
+      : { estado: { ...antes, mesa: doble.mesa, mano: doble.mano, vida: doble.vida }, titulo: 'Golpe doble', texto: `${texto} ${textoReparto()} Ambos recuperan el paso atrás. Declara ${N[doble.primero]}, que tiraba la primera estocada.` };
   } else if (muerto) {
     const parada = `Nadie contesta el ${defDe(ui.config, muerto.carta).nombre} de ${N[muerto.jugador]}: la parada no hiere y no hay herida.`;
     ui.pausa = muerto.sigue
@@ -2087,6 +2090,12 @@ function jugar(jugada) {
     ui.pausa = { estado: despues, titulo: `¡Gana ${N[despues.ganador]}!`, texto: coste ? `${N[coste.jugador]} abre con ${defDe(ui.config, coste.carta).nombre}, le cuesta ${puntos(coste.coste)} de vida y se queda a 0.` : '', fin: true };
   } else if (cumplido) {
     ui.pausa = { estado: antes, titulo: `Paso atrás de ${N[cumplido.jugador]}`, texto: `Nadie lo corta: el paso atrás se cumple, sin herida. ${textoReparto()} ${N[cumplido.jugador]} no podrá volver a darlo hasta que haya una herida. Declara ${N[RIVAL[cumplido.jugador]]}.` };
+  }
+  // Deja ver la última jugada en la mesa un momento antes de sacar el aviso.
+  if (ui.pausa) {
+    const pausa = ui.pausa;
+    pausa.oculta = true;
+    setTimeout(() => { if (ui.pausa === pausa) { pausa.oculta = false; render(); } }, 1800);
   }
   if (despues.turno !== antes.turno) ui.manoVisible = false;
   ui.estado = despues;
@@ -2202,7 +2211,7 @@ function render() {
   reg.innerHTML = ui.registro.map((r) => `<li class="${r.jugador ?? ''} ${r.tipo}">${r.texto}</li>`).join('');
   reg.scrollTop = reg.scrollHeight;
   const aviso = $('#aviso');
-  if (ui.pausa) {
+  if (ui.pausa && !ui.pausa.oculta) {
     aviso.hidden = false;
     aviso.innerHTML = `<div class="aviso-caja"><h2>${ui.pausa.titulo}</h2><p>${ui.pausa.texto}</p><button class="principal" data-accion="continuar">${ui.pausa.fin ? 'Nueva partida' : 'Continuar'}</button></div>`;
     aviso.querySelector('button').focus();
