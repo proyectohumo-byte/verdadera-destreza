@@ -388,13 +388,14 @@ body.arrastrando #pista.no-encaja { box-shadow: inset 0 0 0 4px var(--papel-clar
     border-radius: 999px; padding: 8px 14px; font-variant: small-caps; box-shadow: 0 4px 12px #0006;
   }
   body.cronica-abierta .btn-cronica { display: none; }
+  /* Hueco fijo entre el marcador y la mano del rival: el aviso aparece ahí sin tapar nada */
   .cronica-flotante {
-    display: block; position: fixed; left: 12px; right: 12px; top: calc(8px + env(safe-area-inset-top)); z-index: 16;
+    display: flex; flex-direction: column; justify-content: center; min-height: 54px;
     background: #1f1711ee; color: #f3e6c8; border: 1px solid var(--oro); border-radius: 4px;
-    padding: 8px 12px; font-size: 13.5px; line-height: 1.35; box-shadow: 0 6px 18px #0007;
-    opacity: 0; transform: translateY(-12px); pointer-events: none; transition: opacity 0.3s, transform 0.3s;
+    padding: 6px 12px; font-size: 13.5px; line-height: 1.35; box-shadow: 0 3px 10px #0005;
+    opacity: 0; transition: opacity 0.3s;
   }
-  .cronica-flotante.visible { opacity: 1; transform: none; }
+  .cronica-flotante.visible { opacity: 1; }
   .cronica-flotante div + div { margin-top: 4px; padding-top: 4px; border-top: 1px solid #ead9b433; }
   .cronica-flotante .herida, .cronica-flotante .fin { color: #ffb3a6; font-weight: bold; }
   .tablero { padding-bottom: 64px; }
@@ -453,6 +454,7 @@ button.negativo:hover { background: linear-gradient(#7d211c, #5a1410); }
 
   <div class="disposicion">
     <main class="tablero">
+      <div id="cronica-flotante" class="cronica-flotante" aria-live="polite"></div>
       <section id="zona-arriba" class="zona zona-arriba"></section>
       <section id="pista" class="pista" aria-label="Pista de combate"></section>
       <section id="centro" class="centro"></section>
@@ -465,7 +467,6 @@ button.negativo:hover { background: linear-gradient(#7d211c, #5a1410); }
   </div>
 
   <div id="mensaje-flotante" class="mensaje-flotante" role="status"></div>
-  <div id="cronica-flotante" class="cronica-flotante" aria-live="polite"></div>
   <button class="btn-cronica" data-accion="cronica" aria-label="Ver la crónica del combate">Crónica</button>
   <div id="aviso" class="aviso" hidden></div>
   <div id="detalle" class="detalle" hidden></div>
