@@ -2769,7 +2769,7 @@ function describirCarta(def) {
   filas.push(['Valor', textoSumaRival(def) ? `${def.valor}, y solo se puede jugar si la serie rival ${textoSumaRival(def)}` : String(def.valor)]);
 
   const circulos = def.circulos.filter((c) => c !== 'blanco');
-  let txtCirculos = def.circulos.length === 0 ? 'Sin círculos: no puede ir detrás de ninguna carta propia; siempre va primera en su serie.' : `Puede ir detrás de una carta propia ${listaO(fem(circulos))}.`;
+  let txtCirculos = def.circulos.length === 0 ? 'Sin círculos: no puede ir detrás de ninguna carta tuya, así que solo puede ser la primera carta de una respuesta. No tiene círculo blanco: abrir combate depende de la estrella blanca.' : `Puede ir detrás de una carta propia ${listaO(fem(circulos))}.`;
   if (def.circulos.includes('blanco')) txtCirculos += ' Círculo blanco: puede empezar una respuesta.';
   const previas = todas.filter((a) => cfg.siguientes[a.id].includes(def.id)).map((a) => a.nombre);
   if (previas.length) txtCirculos += ` En tu mazo: ${lista(previas)}.`;
