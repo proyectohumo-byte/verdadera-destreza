@@ -807,13 +807,27 @@ function puedeIntervenir(serieDeclarada, indiceElegido, respuesta, opciones = {}
     }
     return { valida: false, motivo: `${primera.nombre} no puede intervenir ${objetivo.nombre}: no tiene estrella ${objetivo.color}` };
   }
-  if (primera.serieRivalMenorQue !== undefined) {
+  if (primera.serieRivalMenorQue !== undefined || primera.serieRivalMayorQue !== undefined) {
     const suma = valorSerie(serieDeclarada);
-    if (!(suma < primera.serieRivalMenorQue)) {
-      return { valida: false, motivo: `${primera.nombre} solo vale si la serie rival suma menos de ${primera.serieRivalMenorQue} (suma ${suma})` };
+    if (!cumpleSumaRival(primera, suma)) {
+      return { valida: false, motivo: `${primera.nombre} solo vale si la serie rival ${textoSumaRival(primera)} (suma ${suma})` };
     }
   }
   return validarSerie(respuesta, true, puedeEmpezarContra(primera, serieDeclarada, indiceElegido), opciones);
+}
+
+/** Límite de Reparo sobre la suma de la serie rival ("serieRivalMayorQue" / "serieRivalMenorQue" en cartas.json). */
+function cumpleSumaRival(def, suma) {
+  if (def.serieRivalMenorQue !== undefined && !(suma < def.serieRivalMenorQue)) return false;
+  if (def.serieRivalMayorQue !== undefined && !(suma > def.serieRivalMayorQue)) return false;
+  return true;
+}
+
+function textoSumaRival(def) {
+  const partes = [];
+  if (def.serieRivalMayorQue !== undefined) partes.push(`suma más de ${def.serieRivalMayorQue}`);
+  if (def.serieRivalMenorQue !== undefined) partes.push(`suma menos de ${def.serieRivalMenorQue}`);
+  return partes.join(' y ');
 }
 
 // ---- engine/motor.js ----
@@ -1387,7 +1401,7 @@ function tieneSerieCompleta(cfg, conteo, id) {
 function primeraValida(def, serie, indice, suma, pasoAtrasDisponible) {
   if (!puedeEmpezarContra(def, serie, indice)) return false;
   if (!estrellaQueInterviene(def, serie, indice)) return false;
-  if (def.serieRivalMenorQue !== undefined && !(suma < def.serieRivalMenorQue)) return false;
+  if (!cumpleSumaRival(def, suma)) return false;
   if (def.pasoAtras && !pasoAtrasDisponible) return false;
   return true;
 }
@@ -1907,6 +1921,13 @@ function deducirObjetivo() {
   const e = ui.estado;
   if (e.fase !== 'responder' || ui.objetivo !== null || !ui.seleccion.length) return;
   const posibles = e.serieDeclarada.cartas.map((_, i) => i).filter((i) => comprobarJugada(e, { tipo: 'intervenir', indice: i, cartas: ui.seleccion }, PARCIAL).valida);
+  // El paso atrás va por defecto contra la última carta que puede intervenir (la roja o verde más reciente).
+  const pasoAtras = ui.seleccion.length === 1 && defDe(ui.config, ui.seleccion[0]).pasoAtras;
+  if (pasoAtras && posibles.length) {
+    ui.objetivo = posibles[posibles.length - 1];
+    ui.objetivoFijado = false;
+    return;
+  }
   if (posibles.length === 1) {
     ui.objetivo = posibles[0];
     ui.objetivoFijado = false;
@@ -1976,6 +1997,12 @@ function soltarHaciaRival(inst, x, indicePedido = null) {
     .map((h) => { const r = h.getBoundingClientRect(); return { indice: Number(h.dataset.rival), dist: Math.abs(r.left + r.width / 2 - x) }; })
     .sort((a, b) => a.dist - b.dist);
   if (!porDistancia.length) return soltarEnSerie(inst, ui.seleccion.length);
+  // El paso atrás soltado en la pista (no encima de una carta) va contra la última carta que puede intervenir.
+  if (indicePedido === null && defDe(ui.config, inst).pasoAtras) {
+    const n = ui.estado.serieDeclarada.cartas.length;
+    const ultima = [...Array(n).keys()].reverse().find((i) => respuestaSobreRival(inst, i).valida);
+    if (ultima !== undefined) return soltarEnRival(inst, ultima);
+  }
   const pedido = indicePedido ?? porDistancia[0].indice;
   if (respuestaSobreRival(inst, pedido).valida) return soltarEnRival(inst, pedido);
   const legal = porDistancia.find((c) => respuestaSobreRival(inst, c.indice).valida);
@@ -2739,7 +2766,7 @@ function describirCarta(def) {
   const nombre = (id) => cfg.cartas[id].nombre;
   const filas = [];
   filas.push(['Color', def.color]);
-  filas.push(['Valor', def.serieRivalMenorQue !== undefined ? `${def.valor}, y solo se puede jugar si la serie rival suma menos de ${def.serieRivalMenorQue}` : String(def.valor)]);
+  filas.push(['Valor', textoSumaRival(def) ? `${def.valor}, y solo se puede jugar si la serie rival ${textoSumaRival(def)}` : String(def.valor)]);
 
   const circulos = def.circulos.filter((c) => c !== 'blanco');
   let txtCirculos = def.circulos.length === 0 ? 'Sin círculos: no puede ir detrás de ninguna carta propia; siempre va primera en su serie.' : `Puede ir detrás de una carta propia ${listaO(fem(circulos))}.`;
