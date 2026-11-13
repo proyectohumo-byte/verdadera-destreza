@@ -2051,6 +2051,51 @@ function destinoDe(objetivo) {
   return null;
 }
 
+/** Rectángulo que ocupa en pantalla la carta que se arrastra (el fantasma en móvil; en escritorio, la imagen de arrastre). */
+function rectArrastrada(x, y) {
+  if (arrastre.fantasma?.isConnected) return arrastre.fantasma.getBoundingClientRect();
+  if (!arrastre.ancho) return null;
+  const left = x - arrastre.ox;
+  const top = y - arrastre.oy;
+  return { left, top, right: left + arrastre.ancho, bottom: top + arrastre.alto };
+}
+
+/**
+ * Carta rival (de la serie declarada) que más tapa la carta arrastrada, en porcentaje de su
+ * superficie. Basta con que la tape un poco. null si no tapa ninguna.
+ */
+function rivalCubierto(rect) {
+  if (!rect || ui.estado.fase !== 'responder') return null;
+  let mejor = null;
+  for (const h of document.querySelectorAll('[data-rival]')) {
+    if (h.dataset.rival === '') continue;
+    const r = h.getBoundingClientRect();
+    const ancho = Math.min(rect.right, r.right) - Math.max(rect.left, r.left);
+    const alto = Math.min(rect.bottom, r.bottom) - Math.max(rect.top, r.top);
+    if (ancho <= 0 || alto <= 0) continue;
+    const cubierto = (ancho * alto) / (r.width * r.height);
+    if (!mejor || cubierto > mejor.cubierto) mejor = { tipo: 'rival', indice: Number(h.dataset.rival), el: h, cubierto };
+  }
+  return mejor;
+}
+
+/** Destino al arrastrar: si la carta tapa alguna carta rival, esa; si no, lo que haya bajo el dedo o el ratón. */
+function destinoArrastre(bajo, x, y) {
+  const rect = rectArrastrada(x, y);
+  const rival = rivalCubierto(rect);
+  if (rival) return { ...rival, x: (rect.left + rect.right) / 2 };
+  const d = bajo ? destinoDe(bajo) : null;
+  return d ? { ...d, x } : null;
+}
+
+/** Ejecuta el soltar en el destino calculado. */
+function soltarEn(d, inst) {
+  if (d?.tipo === 'serie') soltarEnSerie(inst, d.k);
+  else if (d?.tipo === 'rival') soltarHaciaRival(inst, d.x, d.indice);
+  else if (d?.tipo === 'frente') soltarHaciaRival(inst, d.x);
+  else if (d?.tipo === 'mano') soltarEnMano(inst);
+}
+
 // ---------- Gestos táctiles (móvil) ----------
 // El arrastre HTML5 no funciona con el dedo: aquí se reproduce con eventos de puntero.
 // Mantener pulsada una carta (sin moverla) la muestra en primer plano.
@@ -2074,6 +2119,7 @@ function enlazarTactil() {
     toque.fantasma.classList.add('fantasma');
     toque.fantasma.style.width = `${r.width}px`;
     document.body.appendChild(toque.fantasma);
+    arrastre.fantasma = toque.fantasma;
     marcarDestinos(toque.inst);
   };
   const terminar = (soltar, ev) => {
@@ -2081,16 +2127,13 @@ function enlazarTactil() {
     clearTimeout(toque.temporizador);
     toque.carta.classList.remove('sujeta');
     if (toque.modo === 'arrastrar') {
-      toque.fantasma.remove();
       const bajo = soltar ? document.elementFromPoint(ev.clientX, ev.clientY) : null;
-      const d = bajo ? destinoDe(bajo) : null;
+      const d = soltar ? destinoArrastre(bajo, ev.clientX, ev.clientY) : null;
+      toque.fantasma.remove();
       const inst = toque.inst;
       arrastre = null;
       limpiarDestinos();
-      if (d?.tipo === 'serie') soltarEnSerie(inst, d.k);
-      else if (d?.tipo === 'rival') soltarHaciaRival(inst, ev.clientX, d.indice);
-      else if (d?.tipo === 'frente') soltarHaciaRival(inst, ev.clientX);
-      else if (d?.tipo === 'mano') soltarEnMano(inst);
+      soltarEn(d, inst);
     } else if (!toque.modo && toque.sujeta && soltar) {
       mostrarDetalle(toque.carta.dataset.carta, toque.carta.classList.contains('oscura'));
     }
@@ -2132,7 +2175,7 @@ function enlazarTactil() {
     toque.fantasma.style.left = `${ev.clientX}px`;
     toque.fantasma.style.top = `${ev.clientY}px`;
     const bajo = document.elementFromPoint(ev.clientX, ev.clientY);
-    const d = bajo ? destinoDe(bajo) : null;
+    const d = destinoArrastre(bajo, ev.clientX, ev.clientY);
     for (const h of document.querySelectorAll('.sobre')) if (h !== d?.el) h.classList.remove('sobre');
     d?.el.classList.add('sobre');
   }, { passive: false });
@@ -2157,7 +2200,8 @@ function enlazarArrastre() {
       ev.preventDefault();
       return;
     }
-    arrastre = { inst: origen.dataset.mano, x: 0 };
+    const r = (origen.closest('.carta') ?? origen.querySelector('.carta') ?? origen).getBoundingClientRect();
+    arrastre = { inst: origen.dataset.mano, x: 0, ox: ev.clientX - r.left, oy: ev.clientY - r.top, ancho: r.width, alto: r.height };
     ev.dataTransfer.effectAllowed = 'move';
     ev.dataTransfer.setData('text/plain', arrastre.inst);
     requestAnimationFrame(() => marcarDestinos(arrastre.inst));
@@ -2165,7 +2209,7 @@ function enlazarArrastre() {
   document.addEventListener('dragover', (ev) => {
     if (!arrastre) return;
     arrastre.x = ev.clientX;
-    const d = destinoDe(ev.target);
+    const d = destinoArrastre(ev.target, ev.clientX, ev.clientY);
     for (const h of document.querySelectorAll('.sobre')) if (h !== d?.el) h.classList.remove('sobre');
     if (!d) return;
     ev.preventDefault();
@@ -2174,16 +2218,13 @@ function enlazarArrastre() {
   });
   document.addEventListener('drop', (ev) => {
     if (!arrastre) return;
-    const d = destinoDe(ev.target);
+    const d = destinoArrastre(ev.target, ev.clientX, ev.clientY);
     const inst = arrastre.inst;
     arrastre = null;
     limpiarDestinos();
     if (!d) return;
     ev.preventDefault();
-    if (d.tipo === 'serie') soltarEnSerie(inst, d.k);
-    else if (d.tipo === 'rival') soltarHaciaRival(inst, ev.clientX, d.indice);
-    else if (d.tipo === 'frente') soltarHaciaRival(inst, ev.clientX);
-    else soltarEnMano(inst);
+    soltarEn(d, inst);
   });
   document.addEventListener('dragend', () => {
     arrastre = null;
