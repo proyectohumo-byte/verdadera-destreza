@@ -486,6 +486,13 @@ button.negativo:hover { background: linear-gradient(#7d211c, #5a1410); }
 .combate-hist .contra { color: var(--tinta-suave); font-style: italic; }
 .combate-hist .contestada { color: var(--sangre); font-weight: bold; }
 
+/* Sello de causa sujeta (Atajo, Transferir, Suspensión, Diversión): roperas cruzadas y flecha */
+.sello-sujeta { display: inline-flex; align-items: center; gap: 2px; color: #000; }
+.carta.oscura .sello-sujeta { color: #fff; }
+.sello-sujeta svg { fill: currentColor; }
+.sello-espadas { width: calc(var(--w) * 0.2); height: calc(var(--w) * 0.2); }
+.sello-flecha { width: calc(var(--w) * 0.15); height: calc(var(--w) * 0.09); }
+
 </style>
 </head>
 <body>
@@ -589,7 +596,7 @@ button.negativo:hover { background: linear-gradient(#7d211c, #5a1410); }
       <li><b>Herida</b>: si no intervienes (o no puedes), la serie te hiere: suma de sus cartas (+2 de Cuchillada) + 1 por la carta a la que se enfrentó (sin ese +1 si es la primera serie del combate). Cada esgrimista tiene 10 de vida.</li>
       <li>Tras una herida, todo vuelve a empezar salvo las vidas, y declara quien hirió.</li>
       <li><b>Reparo, una parada mala</b>: no hiere, pero <b>hay que contestarlo</b>: no se puede dejar pasar. Si no tienes con qué atacar, robas de tu pila de una en una hasta poder intervenir el Reparo con una serie que termine hiriendo (el paso atrás no cuenta: siempre es optativo). Si se te acaba la pila sin poder, <b>solo tú</b> recoges y barajas tu mazo y robas una mano nueva; quien paró se queda con su mano, su pila y sus cartas en la mesa. Declaras tú.</li>
-      <li><b>Espada sujeta</b>: una carta rival que va justo detrás de una carta azul o amarilla (Atajo, Transferir, Suspensión, Diversión) tiene tu espada controlada y lleva un candado 🔒 en la mesa. No puedes contestarla atacando (con Estocada o Cuchillada). Puedes liberar tu espada interviniendo la carta que te sujeta, parar con Recoger o Reparo, o dar un paso atrás. Detrás de un Librar las espadas van libres.</li>
+      <li><b>Espada sujeta</b>: una carta rival que va justo detrás de una carta azul o amarilla (Atajo, Transferir, Suspensión, Diversión) tiene tu espada controlada y lleva un candado 🔒 en la mesa. Las cartas que sujetan llevan abajo el sello de las roperas cruzadas con una flecha hacia la carta siguiente. No puedes contestarla atacando (con Estocada o Cuchillada). Puedes liberar tu espada interviniendo la carta que te sujeta, parar con Recoger o Reparo, o dar un paso atrás. Detrás de un Librar las espadas van libres.</li>
       <li><b>Estocada contra Estocada: golpe doble</b>. Los dos pierden 1 punto y declara quien tiró la primera estocada. Si los dos llegan a 0 a la vez, empate. La Estocada gana al tajo (Cuchillada) por alcance; el tajo es más contundente (+2).</li>
       <li><b>Paso atrás (Compás extraño)</b>: tiene estrella verde y roja, así que solo responde a Recoger, Reparo, Estocada o Cuchillada. Solo una Estocada puede cortarlo. Si nadie lo corta, todas las cartas vuelven a las manos sin herida y declara quien no lo dio. Cada uno puede darlo una vez entre heridas (un paso atrás cortado también cuenta).</li>
     </ol>
@@ -1689,7 +1696,22 @@ function defsSvg(cartas) {
     const [a, b] = p.split('|');
     return `<linearGradient id="estrella-${a}-${b}" x1="0" x2="1" y1="0" y2="0"><stop offset="50%" stop-color="${COLOR_HEX[a]}"/><stop offset="50%" stop-color="${COLOR_HEX[b]}"/></linearGradient>`;
   });
-  return `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>${grads.join('')}</defs></svg>`;
+  return `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>${grads.join('')}${SIMBOLO_ROPERAS}</defs></svg>`;
+}
+
+/** Las dos roperas cruzadas del icono del juego (img/icono.svg), como símbolo reutilizable. */
+const SIMBOLO_ROPERAS = `<g id="ropera"><path d="M -7 0 L 7 0 L 2.8 -318 L 0 -338 L -2.8 -318 Z"/><path d="M -40 0 A 40 36 0 0 1 40 0 Z"/><rect x="-44" y="-2" width="88" height="6" rx="3"/><rect x="-74" y="7" width="148" height="5" rx="2.5"/><circle cx="-76" cy="9.5" r="6"/><circle cx="76" cy="9.5" r="6"/><path d="M -6.5 12 L 6.5 12 L 7.5 70 L -7.5 70 Z"/><ellipse cx="0" cy="80" rx="11" ry="12"/></g><symbol id="roperas-cruzadas" viewBox="56 40 400 420"><use href="#ropera" transform="translate(256 244) rotate(-36) translate(0 118) scale(0.92)"/><use href="#ropera" transform="translate(256 244) rotate(36) translate(0 118) scale(-0.92 0.92)"/></symbol>`;
+
+/**
+ * Sello de causa sujeta: las roperas cruzadas y una flecha hacia la carta siguiente, que va a
+ * espada sujeta (no se puede contestar atacando).
+ */
+function htmlSelloSujeta(espejo) {
+  const flecha = espejo ? 'M1,6 L8,1 L8,3.5 L19,3.5 L19,8.5 L8,8.5 L8,11 Z' : 'M19,6 L12,1 L12,3.5 L1,3.5 L1,8.5 L12,8.5 L12,11 Z';
+  const titulo = 'Causa sujeta: la carta siguiente va a espada sujeta y no se puede contestar atacando';
+  const espadas = '<svg class="sello-espadas" viewBox="0 0 20 20" aria-hidden="true"><use href="#roperas-cruzadas" width="20" height="20"/></svg>';
+  const punta = `<svg class="sello-flecha" viewBox="0 0 20 12" aria-hidden="true"><path d="${flecha}"/></svg>`;
+  return `<span class="sello-sujeta" title="${titulo}" aria-label="${titulo}">${espejo ? punta + espadas : espadas + punta}</span>`;
 }
 
 /**
@@ -1721,6 +1743,7 @@ function htmlCarta(def, opciones = {}) {
   let pie = '';
   if (def.modificador) pie = `<span class="mod">${def.modificador}</span>`;
   if (def.serieRivalMenorQue !== undefined) pie = `<span class="mod">&lt;${def.serieRivalMenorQue}</span>`;
+  if (def.sujetaEspada) pie = htmlSelloSujeta(espejo);
   const esCompas = !!def.pasoAtras;
   const colCirculos = `<div class="col circulos">${circulos}</div>`;
   const colFlechas = `<div class="col flechas">${flechas}</div>`;
@@ -2943,6 +2966,7 @@ function describirCarta(def) {
   if (def.requiereContacto) reglas.push(`Necesita contacto entre las hojas: solo empieza una respuesta contra una carta ${listaO(fem(def.contactoCon ?? []))} del contrario.`);
   if (def.causaLibreContra) reglas.push(`Necesita estar de causa libre: solo empieza una respuesta contra ${listaO(def.causaLibreContra.map(nombre))} del contrario.`);
   if (def.pasoAtras) reglas.push('Paso atrás: solo responde a cartas verdes o rojas (Recoger, Reparo, Estocada, Cuchillada). Solo una Estocada lo corta. Si se cumple, todas las cartas vuelven a las manos y declara el contrario. Una vez entre heridas.');
+  if (def.sujetaEspada) reglas.push('Causa sujeta (sello de las roperas cruzadas): la carta que pongas detrás va a espada sujeta y el rival no puede contestarla atacando.');
   if (def.modificador) reglas.push(`Modificador ${def.modificador}.`);
   if (def.cantidad > 1) reglas.push(`Hay ${def.cantidad} en cada mazo.`);
   if (def.noHiere) reglas.push(def.flechas.length ? 'Sola es una parada: no hiere y hay que contestarla. Seguida de otras cartas es un ataque normal.' : 'Parada: no hiere y hay que contestarla.');
