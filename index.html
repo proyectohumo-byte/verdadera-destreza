@@ -2008,9 +2008,10 @@ function candidataEnPosicion(inst, k) {
 function respuestaSobreRival(inst, indice) {
   const e = ui.estado;
   const conResto = [inst, ...ui.seleccion.filter((x) => x !== inst)];
-  const r = comprobarJugada(e, { tipo: 'intervenir', indice, cartas: conResto });
+  // Serie en construcción: se completa después (el ✓ solo aparece cuando ya termina hiriendo).
+  const r = comprobarJugada(e, { tipo: 'intervenir', indice, cartas: conResto }, PARCIAL);
   if (r.valida) return { cartas: conResto, valida: true };
-  const sola = comprobarJugada(e, { tipo: 'intervenir', indice, cartas: [inst] });
+  const sola = comprobarJugada(e, { tipo: 'intervenir', indice, cartas: [inst] }, PARCIAL);
   if (sola.valida) return { cartas: [inst], valida: true, recortada: conResto.length > 1 };
   return { valida: false, motivo: sola.motivo };
 }
@@ -2076,6 +2077,7 @@ function soltarEnRival(inst, indice, nota = null) {
   ui.objetivo = indice;
   ui.objetivoFijado = true;
   ui.mensaje = nota ? { texto: nota, tipo: 'info' } : r.recortada ? { texto: 'El resto de tu serie no encajaba detrás: empiezas una respuesta nueva con esta carta.', tipo: 'info' } : null;
+  if (!indicesIntervenibles(ui.estado).includes(indice)) ui.mensaje = { texto: motivoSinIntervencion(ui.estado, indice), tipo: 'error' };
   render(); // nunca se juega sola: se confirma con el ✓ verde de la pista
 }
 
@@ -2313,12 +2315,26 @@ function enlazarArrastre() {
   });
 }
 
+/**
+ * Por qué no se puede intervenir la carta `indice`: o ninguna carta de la mano tiene la estrella,
+ * o la tienen pero la serie no puede terminar hiriendo con lo que hay en la mano.
+ */
+function motivoSinIntervencion(e, indice) {
+  const objetivo = defDe(ui.config, e.serieDeclarada.cartas[indice]);
+  const serie = defsDe(ui.config, e.serieDeclarada.cartas);
+  const conEstrella = [...new Set(e.mano[e.turno].map((i) => defDe(ui.config, i)))]
+    .filter((d) => !d.pasoAtras && puedeIntervenir(serie, indice, [d], PARCIAL).valida)
+    .map((d) => d.nombre);
+  if (!conEstrella.length) return `Ninguna carta de tu mano puede intervenir ${objetivo.nombre}`;
+  return `${listaO(conEstrella)} puede${conEstrella.length > 1 ? 'n' : ''} intervenir ${objetivo.nombre}, pero tu respuesta tiene que terminar hiriendo (en Estocada o Cuchillada) y con tu mano no puedes completarla`;
+}
+
 function alPulsarRival(indice) {
   const e = ui.estado;
   if (ui.pausa || e.fase !== 'responder' || esOrdenador(e.turno)) return;
   const objetivo = defDe(ui.config, e.serieDeclarada.cartas[indice]);
   if (!indicesIntervenibles(e).includes(indice)) {
-    avisar(`Ninguna carta de tu mano puede intervenir ${objetivo.nombre}`);
+    avisar(motivoSinIntervencion(e, indice));
     return render();
   }
   ui.objetivo = indice;
@@ -2722,7 +2738,7 @@ function htmlPista(e) {
               clases.push('objetivo');
               insignia = 'objetivo';
             }
-            titulo = intervenibles.includes(ci) ? `Suelta encima una carta de tu mano para intervenir ${d.nombre} en el acto, o púlsala para elegirla` : `Ninguna carta de tu mano puede intervenir ${d.nombre}`;
+            titulo = intervenibles.includes(ci) ? `Suelta encima una carta de tu mano para intervenir ${d.nombre} en el acto, o púlsala para elegirla` : motivoSinIntervencion(e, ci);
           }
           if (sujeta) titulo += ' · a espada sujeta: no se puede contestar atacando';
         } else if (g.intervenida === ci) {
