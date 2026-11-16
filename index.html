@@ -476,6 +476,16 @@ button.negativo:hover { background: linear-gradient(#7d211c, #5a1410); }
 .hueco { position: relative; }
 .candado { position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%); font-size: 13px; line-height: 1; background: var(--papel-claro); border: 1px solid var(--oro); border-radius: 50%; padding: 2px 3px; box-shadow: 0 1px 3px #2a1f1655; pointer-events: none; z-index: 2; }
 
+/* Secuencia reproducible en el historial */
+.secuencia-historial { max-height: 360px; overflow-y: auto; margin: 8px 0; font-size: 13.5px; }
+.combate-hist { margin-bottom: 8px; }
+.combate-titulo { font-variant: small-caps; color: var(--sangre); letter-spacing: 0.4px; }
+.combate-hist ol { margin: 2px 0 0; padding-left: 22px; }
+.combate-hist li { margin-bottom: 2px; }
+.combate-hist li.resultado { list-style: none; margin-left: -18px; font-style: italic; color: var(--oro); }
+.combate-hist .contra { color: var(--tinta-suave); font-style: italic; }
+.combate-hist .contestada { color: var(--sangre); font-weight: bold; }
+
 </style>
 </head>
 <body>
@@ -552,7 +562,7 @@ button.negativo:hover { background: linear-gradient(#7d211c, #5a1410); }
 
   <dialog id="dlg-ranking" class="dlg-reglas">
     <h2>Historial</h2>
-    <p class="nota-ranking">Partidas terminadas en este dispositivo, de la más reciente a la más antigua. Pulsa una para ver su crónica y la estrella para guardarla en favoritas (las favoritas no se borran nunca solas).</p>
+    <p class="nota-ranking">Partidas terminadas en este dispositivo, de la más reciente a la más antigua. Pulsa una para ver la secuencia de jugadas, lista para reproducirla con las cartas reales (solo lo que llegó a hacerse: lo que va detrás de una carta contestada ✕ no cuenta), y la estrella para guardarla en favoritas (las favoritas no se borran nunca solas).</p>
     <div id="ranking-contenido"></div>
     <div class="botones">
       <button class="secundario" data-accion="borrar-ranking">Borrar historial</button>
@@ -2356,7 +2366,7 @@ function jugar(jugada) {
     avisar(err.message);
     return render();
   }
-  for (const ev of despues.eventos) registrar(ev, antes);
+  for (const ev of despues.eventos) { registrar(ev, antes); anotarSecuencia(ev); }
   const herida = despues.eventos.find((ev) => ev.tipo === 'herida');
   const cumplido = despues.eventos.find((ev) => ev.tipo === 'pasoAtrasCumplido');
   const doble = despues.eventos.find((ev) => ev.tipo === 'golpeDoble');
@@ -2414,7 +2424,7 @@ function registrarResultado(e) {
     ganador: e.empate ? null : e.ganador,
     vida: { ...e.vida },
     vidaInicial: ui.config.ajustes.vidaInicial,
-    cronica: ui.registro.filter((r) => r.tipo !== 'robo').map(({ texto, jugador, tipo }) => ({ texto, jugador, tipo })),
+    secuencia: ui.secuencia ?? [],
   });
 }
 
@@ -2450,9 +2460,11 @@ function htmlPartidaHistorial(p) {
   const f = new Date(p.fecha);
   const fecha = `${f.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}, ${f.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
   const res = p.ganador === null ? 'Empate' : `Gana ${escapar(p[p.ganador])}`;
-  const cronica = p.cronica?.length
-    ? `<ol class="cronica-historial">${p.cronica.map((r) => `<li class="${r.jugador ?? ''} ${r.tipo ?? ''}">${r.texto}</li>`).join('')}</ol>`
-    : '<p class="nota-ranking">Esta partida se guardó sin la crónica.</p>';
+  const cronica = p.secuencia?.length
+    ? `<div class="secuencia-historial">${htmlSecuencia(p.secuencia)}</div>`
+    : p.cronica?.length
+      ? `<ol class="cronica-historial">${p.cronica.map((r) => `<li class="${r.jugador ?? ''} ${r.tipo ?? ''}">${r.texto}</li>`).join('')}</ol>`
+      : '<p class="nota-ranking">Esta partida se guardó sin la secuencia.</p>';
   return `<li class="${p.favorita ? 'favorita' : ''}">
     <button class="estrella" data-accion="favorita" data-id="${p.id}" title="${p.favorita ? 'Quitar de favoritas' : 'Marcar como favorita'}" aria-pressed="${!!p.favorita}">${p.favorita ? '★' : '☆'}</button>
     <details data-id="${p.id}" ${abiertas.has(p.id) ? 'open' : ''}>
@@ -2507,6 +2519,54 @@ function turnoOrdenador() {
 }
 
 // ---------- Registro ----------
+
+/**
+ * Secuencia que se puede reproducir con las cartas reales: solo las acciones que llegan a hacerse.
+ * Cuando una serie es intervenida en su carta i, las cartas posteriores no llegan a ejecutarse y
+ * se quitan; la carta intervenida queda marcada como contestada. Entre combates hay un resultado.
+ * Pasos: { jugador, cartas: [nombres], contra?: nombre, contestada?: true } o { resultado: texto }.
+ */
+function anotarSecuencia(ev) {
+  if (!ui.secuencia) ui.secuencia = [];
+  const sec = ui.secuencia;
+  const nombre = (inst) => defDe(ui.config, inst).nombre;
+  switch (ev.tipo) {
+    case 'serie': {
+      if (ev.respuesta) {
+        // La serie intervenida es la última anotada del rival: se corta tras la carta contestada.
+        for (let k = sec.length - 1; k >= 0; k--) {
+          if (sec[k].resultado) break;
+          if (sec[k].jugador !== ev.jugador) {
+            sec[k].cartas = sec[k].cartas.slice(0, ev.indice + 1);
+            sec[k].contestada = true;
+            break;
+          }
+        }
+      }
+      sec.push({ jugador: ev.jugador, cartas: ev.cartas.map(nombre), contra: ev.respuesta ? nombre(ev.contra) : null });
+      break;
+    }
+    case 'herida': sec.push({ resultado: `${N[ev.atacante]} hiere a ${N[ev.herido]}: ${puntos(ev.dano)} (vida ${ev.vida})` }); break;
+    case 'golpeDoble': sec.push({ resultado: `Golpe doble: los dos pierden ${puntos(ev.dano)}` }); break;
+    case 'pasoAtrasCumplido': sec.push({ resultado: `Paso atrás de ${N[ev.jugador]} cumplido, sin herida` }); break;
+    case 'puntoMuerto':
+      sec.push({ resultado: ev.sigue ? `Nadie contesta la parada de ${N[ev.jugador]}: sigue el combate` : ev.barajaSolo ? `Nadie contesta la parada de ${N[ev.jugador]}: solo ${N[ev.barajaSolo]} baraja` : `Nadie contesta la parada de ${N[ev.jugador]}: punto muerto` });
+      break;
+    default:
+  }
+}
+
+/** HTML de la secuencia de una partida, por combates. */
+function htmlSecuencia(sec) {
+  const combates = [[]];
+  for (const paso of sec) {
+    combates[combates.length - 1].push(paso);
+    if (paso.resultado) combates.push([]);
+  }
+  return combates.filter((c) => c.length).map((c, i) => `<div class="combate-hist"><div class="combate-titulo">Combate ${i + 1}</div><ol>${c.map((p) => (p.resultado
+    ? `<li class="resultado">${escapar(p.resultado)}</li>`
+    : `<li class="${p.jugador}"><b>${N[p.jugador]}</b>${p.contra ? ` <span class="contra">contra ${escapar(p.contra)}</span>` : ''}: ${p.cartas.map(escapar).join(' → ')}${p.contestada ? ' <span class="contestada" title="Aquí le contestaron: las cartas siguientes no llegaron a hacerse">✕</span>' : ''}</li>`)).join('')}</ol></div>`).join('');
+}
 
 function registrar(ev, antes) {
   let t = '';
@@ -2947,6 +3007,7 @@ function empezarPartida(form) {
   ui.config = crearConfig(ui.datos.cartas, ajustes);
   ui.estado = nuevaPartida(ui.config);
   ui.registro = [{ texto: `Nueva partida. Empieza declarando ${N[ui.estado.primero]}.`, jugador: ui.estado.primero, tipo: 'inicio' }];
+  ui.secuencia = [];
   ui.pausa = null;
   ui.pensando = false;
   ui.manoVisible = false;
