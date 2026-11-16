@@ -578,7 +578,7 @@ button.negativo:hover { background: linear-gradient(#7d211c, #5a1410); }
       <li>Al intervenir, las cartas rivales anteriores a la elegida quedan <b>gastadas</b> y la elegida y las siguientes quedan <b>bloqueadas</b>. Tu respuesta pasa a ser la serie declarada.</li>
       <li><b>Herida</b>: si no intervienes (o no puedes), la serie te hiere: suma de sus cartas (+2 de Cuchillada) + 1 por la carta a la que se enfrentó (sin ese +1 si es la primera serie del combate). Cada esgrimista tiene 10 de vida.</li>
       <li>Tras una herida, todo vuelve a empezar salvo las vidas, y declara quien hirió.</li>
-      <li><b>Reparo, una parada mala</b>: no hiere, pero <b>hay que contestarlo</b>: no se puede dejar pasar. Si no tienes con qué atacar, robas de tu pila de una en una hasta poder intervenir el Reparo con una serie que termine hiriendo (el paso atrás no cuenta: siempre es optativo). Si se te acaba la pila sin poder, <b>solo tú</b> recoges y barajas tu mazo y robas una mano nueva; quien paró se queda con su mano y su pila. Declaras tú.</li>
+      <li><b>Reparo, una parada mala</b>: no hiere, pero <b>hay que contestarlo</b>: no se puede dejar pasar. Si no tienes con qué atacar, robas de tu pila de una en una hasta poder intervenir el Reparo con una serie que termine hiriendo (el paso atrás no cuenta: siempre es optativo). Si se te acaba la pila sin poder, <b>solo tú</b> recoges y barajas tu mazo y robas una mano nueva; quien paró se queda con su mano, su pila y sus cartas en la mesa. Declaras tú.</li>
       <li><b>Espada sujeta</b>: una carta rival que va justo detrás de una carta azul o amarilla (Atajo, Transferir, Suspensión, Diversión) tiene tu espada controlada y lleva un candado 🔒 en la mesa. No puedes contestarla atacando (con Estocada o Cuchillada). Puedes liberar tu espada interviniendo la carta que te sujeta, parar con Recoger o Reparo, o dar un paso atrás. Detrás de un Librar las espadas van libres.</li>
       <li><b>Estocada contra Estocada: golpe doble</b>. Los dos pierden 1 punto y declara quien tiró la primera estocada. Si los dos llegan a 0 a la vez, empate. La Estocada gana al tajo (Cuchillada) por alcance; el tajo es más contundente (+2).</li>
       <li><b>Paso atrás (Compás extraño)</b>: tiene estrella verde y roja, así que solo responde a Recoger, Reparo, Estocada o Cuchillada. Solo una Estocada puede cortarlo. Si nadie lo corta, todas las cartas vuelven a las manos sin herida y declara quien no lo dio. Cada uno puede darlo una vez entre heridas (un paso atrás cortado también cuenta).</li>
@@ -1267,7 +1267,9 @@ function puntoMuerto(estado) {
     e.contadores.puntosMuertosConReparto = (e.contadores.puntosMuertosConReparto ?? 0) + 1;
     e.turno = otro;
     e.ataqueLibre = false;
-    e.mesa = { blanco: [], negro: [] };
+    // Solo se retiran de la mesa las cartas de quien baraja; las de quien paró se quedan, gastadas.
+    e.mesa[otro] = [];
+    e.mesa[quien] = e.mesa[quien].map((g) => ({ ...g, contra: null, estados: g.cartas.map(() => 'gastada') }));
     e.serieDeclarada = null;
     e.aperturaCombate = null;
     e.fase = 'declarar';
@@ -2353,7 +2355,7 @@ function jugar(jugada) {
     ui.pausa = muerto.sigue
       ? { estado: despues, titulo: 'Punto muerto', texto: `${parada} No se recoge nada: el combate sigue y ${N[muerto.sigue]} declara un ataque nuevo.${muerto.devuelve ? ` ${N[muerto.jugador]} devuelve una carta de su mano a la pila.` : ''}` }
       : muerto.barajaSolo
-        ? { estado: antes, titulo: 'Punto muerto', texto: `${parada} ${N[muerto.barajaSolo]} no tiene con qué contestar: solo ${N[muerto.barajaSolo]} recoge y baraja su mazo y roba una mano nueva. ${N[muerto.jugador]} se queda con su mano y su pila. Declara ${N[muerto.barajaSolo]}.` }
+        ? { estado: antes, titulo: 'Punto muerto', texto: `${parada} ${N[muerto.barajaSolo]} no tiene con qué contestar: solo ${N[muerto.barajaSolo]} recoge y baraja su mazo y roba una mano nueva. ${N[muerto.jugador]} se queda con su mano, su pila y sus cartas en la mesa. Declara ${N[muerto.barajaSolo]}.` }
         : { estado: antes, titulo: 'Punto muerto', texto: `${parada} ${textoReparto()} ${N[muerto.jugador]} pierde la iniciativa: declara ${N[RIVAL[muerto.jugador]]}.` };
   } else if (herida) {
     const extra = herida.extra ? ` + ${herida.extra} porque ${N[herida.herido]} abrió el combate con ${defDe(ui.config, antes.aperturaCombate.carta).nombre}` : '';
