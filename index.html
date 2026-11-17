@@ -493,6 +493,12 @@ button.negativo:hover { background: linear-gradient(#7d211c, #5a1410); }
 .sello-espadas { width: calc(var(--w) * 0.2); height: calc(var(--w) * 0.2); }
 .sello-flecha { width: calc(var(--w) * 0.15); height: calc(var(--w) * 0.09); }
 
+/* Vídeo de una partida */
+.dlg-video { width: min(960px, calc(100vw - 24px)); max-width: none; }
+.dlg-video canvas { width: 100%; height: auto; display: block; border-radius: 8px; background: #2a2520; }
+.dlg-video .botones { flex-wrap: wrap; }
+.boton-enlace { display: inline-flex; align-items: center; padding: 6px 14px; border-radius: 6px; background: var(--sangre, #8b1a1a); color: #fff; text-decoration: none; }
+
 </style>
 </head>
 <body>
@@ -574,6 +580,18 @@ button.negativo:hover { background: linear-gradient(#7d211c, #5a1410); }
     <div class="botones">
       <button class="secundario" data-accion="borrar-ranking">Borrar historial</button>
       <button class="principal" data-accion="cerrar-ranking">Cerrar</button>
+    </div>
+  </dialog>
+
+  <dialog id="dlg-video" class="dlg-video">
+    <h2>Vídeo de la partida</h2>
+    <canvas id="lienzo-video" width="1280" height="720"></canvas>
+    <p id="estado-video" class="nota-ranking"></p>
+    <div class="botones">
+      <button class="secundario" data-accion="video-play">▶ Reproducir</button>
+      <button class="secundario" data-accion="video-grabar">Descargar vídeo</button>
+      <a id="enlace-video" class="boton-enlace" hidden>Guardar vídeo</a>
+      <button class="principal" data-accion="cerrar-video">Cerrar</button>
     </div>
   </dialog>
 
@@ -1896,8 +1914,781 @@ function calcularRanking(partidas) {
     .sort((a, b) => b.ganadas - a.ganadas || b.porcentaje - a.porcentaje || a.perdidas - b.perdidas || a.nombre.localeCompare(b.nombre));
 }
 
+// ---- ui/secuencia.js ----
+// Secuencia reproducible de una partida (historial y vídeo). Se comparte entre la app y video.html.
+
+/**
+ * Añade a `sec` el paso que corresponde al evento `ev` del motor. `nombreCarta(inst)` da el nombre
+ * de una carta. Solo cuenta lo que llega a hacerse: cuando una serie es intervenida en su carta i,
+ * las cartas posteriores se quitan y la intervenida queda marcada como contestada.
+ * Pasos: { jugador, cartas: [nombres], contra?: nombre, contestada?: true }
+ *     o { resultado: texto, tipo, ... } (herida, doble, pasoAtras, puntoMuerto) entre combates.
+ */
+function anotarPaso(sec, ev, nombreCarta) {
+  const NJ = NOMBRE_JUGADOR;
+  const pts = (n) => `${n} ${n === 1 ? 'punto' : 'puntos'}`;
+  switch (ev.tipo) {
+    case 'serie': {
+      if (ev.respuesta) {
+        // La serie intervenida es la última anotada del rival: se corta tras la carta contestada.
+        for (let k = sec.length - 1; k >= 0; k--) {
+          if (sec[k].resultado) break;
+          if (sec[k].jugador !== ev.jugador) {
+            sec[k].cartas = sec[k].cartas.slice(0, ev.indice + 1);
+            sec[k].contestada = true;
+            break;
+          }
+        }
+      }
+      sec.push({ jugador: ev.jugador, cartas: ev.cartas.map(nombreCarta), contra: ev.respuesta ? nombreCarta(ev.contra) : null });
+      break;
+    }
+    case 'herida':
+      sec.push({ resultado: `${NJ[ev.atacante]} hiere a ${NJ[ev.herido]}: ${pts(ev.dano)} (vida ${ev.vida})`, tipo: 'herida', atacante: ev.atacante, herido: ev.herido, dano: ev.dano, vida: ev.vida });
+      break;
+    case 'golpeDoble':
+      sec.push({ resultado: `Doble tocado: los dos pierden ${pts(ev.dano)}`, tipo: 'doble', dano: ev.dano, vida: { ...ev.vida } });
+      break;
+    case 'pasoAtrasCumplido':
+      sec.push({ resultado: `Paso atrás de ${NJ[ev.jugador]} cumplido, sin herida`, tipo: 'pasoAtras', jugador: ev.jugador });
+      break;
+    case 'puntoMuerto':
+      sec.push({
+        resultado: ev.sigue ? `Nadie contesta la parada de ${NJ[ev.jugador]}: sigue el combate` : ev.barajaSolo ? `Nadie contesta la parada de ${NJ[ev.jugador]}: solo ${NJ[ev.barajaSolo]} baraja` : `Nadie contesta la parada de ${NJ[ev.jugador]}: punto muerto`,
+        tipo: 'puntoMuerto', jugador: ev.jugador,
+      });
+      break;
+    default:
+  }
+}
+
+// ---- ui/video.js ----
+// Vídeo de una partida: dos esgrimistas sin rasgos (uno de blanco, otro de negro) representan la
+// secuencia del historial y un bocadillo de cómic de borde serrado dice lo que hace cada uno.
+// Se dibuja en un <canvas> (1280 × 720) y se puede grabar con MediaRecorder.
+
+const VD_ANCHO = 1280;
+const VD_ALTO = 720;
+const VD_SUELO = 612;
+const VD_CASA = { blanco: 380, negro: 900 };
+const VD_DIR = { blanco: 1, negro: -1 };
+const VD_CARTA = 1.45; // segundos por carta
+const VD_LETRA = '"Comic Sans MS", "Chalkboard SE", "Arial Black", Impact, sans-serif';
+
+const VD_ROPA = {
+  blanco: { cabeza: '#ebe7dd', jubon: '#f8f6f0', sombra: '#d8d2c4', calzas: '#e4dfd2', medias: '#fbfaf6', zapato: '#7a6650', linea: '#8d887b', junta: '#cbc5b6', mano: '#e6e0d2' },
+  negro: { cabeza: '#3d3d45', jubon: '#202026', sombra: '#141418', calzas: '#2b2b32', medias: '#1b1b20', zapato: '#0d0d10', linea: '#5d5d68', junta: '#4d4d57', mano: '#2e2e35' },
+};
+
+// Postura: ángulos absolutos (0 = hacia abajo, π/2 = al frente, π = arriba) del brazo (u), antebrazo
+// (f) y espada (s); brazo de atrás (b, bf); x = avance hacia el rival; lean = inclinación del tronco.
+const VD_GUARDIA = { x: 0, lean: 0.04, crouch: 0.12, stance: 48, u: 1.5, f: 1.57, s: 1.63, b: -0.45, bf: -0.15 };
+
+// Coreografía de cada carta: [momento (fracción de la carta), cambios sobre la guardia].
+const VD_MOVIMIENTO = {
+  atajo: [[0.32, { x: 34, stance: 62, u: 1.42, f: 1.36, s: 1.22, lean: 0.1 }]],
+  transferir: [[0.22, { x: 14, u: 1.38, f: 1.25, s: 1.05 }], [0.5, { x: 26, u: 1.52, f: 1.6, s: 1.9 }], [0.75, { x: 30, u: 1.48, f: 1.45, s: 1.32 }]],
+  estocada: [[0.18, { x: -6, u: 1.2, f: 1.9, s: 1.62, crouch: 0.2 }], [0.42, { x: 92, stance: 108, crouch: 0.4, lean: 0.28, u: 1.6, f: 1.6, s: 1.58, b: -1.2, bf: -1.0 }]],
+  cuchillada: [[0.3, { x: 10, u: 2.6, f: 3.05, s: 3.55, lean: -0.06 }], [0.55, { x: 70, stance: 90, crouch: 0.3, u: 1.25, f: 1.0, s: 0.72, lean: 0.24 }]],
+  recoger: [[0.35, { x: -16, u: 0.85, f: 2.4, s: 2.45, lean: -0.04 }]],
+  suspension: [[0.38, { x: 20, u: 2.55, f: 2.35, s: 1.25, lean: 0.06, stance: 56 }]],
+  diversion: [[0.25, { x: 12, u: 1.62, f: 1.75, s: 2.05 }], [0.55, { x: 28, u: 1.4, f: 1.2, s: 0.86 }]],
+  reparo: [[0.3, { x: -22, u: 1.95, f: 2.5, s: 2.95, lean: -0.1, crouch: 0.2 }]],
+  librar: [[0.25, { x: -6, u: 1.38, f: 1.28, s: 0.95 }], [0.55, { x: 10, u: 1.55, f: 1.62, s: 1.72 }]],
+  compas: [[0.4, { x: -110, stance: 56, lean: -0.05 }]],
+};
+
+// Cómo lo nota el rival (su espada apartada, sujeta o amenazada).
+const VD_REACCION = {
+  atajo: { u: 1.4, f: 1.32, s: 1.28 },
+  transferir: { s: 1.4, f: 1.48 },
+  diversion: { s: 1.02, f: 1.4 },
+  suspension: { lean: -0.1, s: 1.85, u: 1.6 },
+  cuchillada: { lean: -0.12, s: 2.0, f: 1.8, dx: -12 },
+  estocada: { lean: -0.12, s: 2.0, f: 1.8, dx: -14 },
+};
+
+const VD_TEXTO = {
+  atajo: ['¡Atajo!', 'Sujeto tu espada'],
+  transferir: ['¡Transfiero!', 'Llevo mi hoja a otro apoyo'],
+  estocada: ['¡Estocada!', 'Tiro de punta'],
+  cuchillada: ['¡Cuchillada!', 'Corte con el filo'],
+  recoger: ['¡Recojo!', 'Retiro la espada'],
+  suspension: ['¡Suspensión!', 'Alzo la mano y amenazo'],
+  diversion: ['¡Diversión!', 'Desvío tu hoja'],
+  reparo: ['¡Reparo!', 'Paro tu golpe'],
+  librar: ['¡Libro!', 'Suelto mi espada'],
+  compas: ['¡Compás extraño!', 'Paso atrás'],
+};
+
+const VD_NOMBRE = { blanco: 'Blanco', negro: 'Negro' };
+
+function vdNormalizar(t) {
+  return String(t).toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').trim();
+}
+
+function vdIdDeNombre(nombre, cartas) {
+  const n = vdNormalizar(nombre);
+  const c = cartas?.find((x) => vdNormalizar(x.nombre) === n);
+  if (c) return c.id;
+  return Object.keys(VD_TEXTO).find((id) => n.startsWith(id)) ?? null;
+}
+
+const vdSuave = (k) => (k <= 0 ? 0 : k >= 1 ? 1 : k * k * (3 - 2 * k));
+
+function vdMezcla(a, b, k) {
+  const r = {};
+  for (const p in a) r[p] = a[p] + (b[p] - a[p]) * k;
+  return r;
+}
+
+/** Línea de tiempo de la partida: posturas, bocadillos, rótulos, tocados y vida. */
+function vdLineaDeTiempo(partida, cartas) {
+  const vidaIni = partida.vidaInicial ?? 10;
+  const L = { claves: { blanco: [], negro: [] }, bocadillos: [], rotulos: [], golpes: [], vidas: [{ t: 0, blanco: vidaIni, negro: vidaIni }], combates: [] };
+  const ultima = { blanco: { ...VD_GUARDIA }, negro: { ...VD_GUARDIA } };
+  for (const q of ['blanco', 'negro']) L.claves[q].push({ t: 0, pose: { ...VD_GUARDIA } });
+  const ir = (q, t0, dur, cambios) => {
+    const cl = L.claves[q];
+    const t = Math.max(t0, cl[cl.length - 1].t);
+    const pose = { ...VD_GUARDIA, ...cambios };
+    cl.push({ t, pose: ultima[q] }, { t: t + dur, pose });
+    ultima[q] = pose;
+  };
+  const vida = { blanco: vidaIni, negro: vidaIni };
+  const ponerVida = (t) => L.vidas.push({ t, ...vida });
+  const otro = (q) => (q === 'blanco' ? 'negro' : 'blanco');
+
+  let t = 3.2; // portada
+  let combate = 1;
+  L.combates.push({ t: 0, n: 1 });
+  for (const paso of partida.secuencia ?? []) {
+    if (!paso.resultado) {
+      const q = paso.jugador;
+      const rival = otro(q);
+      paso.cartas.forEach((nombre, i) => {
+        const id = vdIdDeNombre(nombre, cartas);
+        const [titulo, sub] = VD_TEXTO[id] ?? [`¡${nombre}!`, ''];
+        let previo = 0;
+        for (const [k, cambios] of VD_MOVIMIENTO[id] ?? [[0.4, { x: 20 }]]) {
+          ir(q, t + previo * VD_CARTA, (k - previo) * VD_CARTA, cambios);
+          previo = k;
+        }
+        if (VD_REACCION[id]) { const { dx = 0, ...re } = VD_REACCION[id]; ir(rival, t + 0.25, 0.4, { ...re, x: ultima[rival].x + dx }); }
+        const contra = i === 0 && paso.contra ? `contra tu ${paso.contra}` : '';
+        L.bocadillos.push({ t0: t + 0.08, t1: t + VD_CARTA - 0.08, quien: q, titulo, sub: contra || sub, extra: contra ? sub : '' });
+        t += VD_CARTA;
+      });
+      t += 0.15;
+      continue;
+    }
+    // Resultado del combate (o punto muerto).
+    const r = paso;
+    let tipo = r.tipo;
+    if (!tipo) tipo = /hiere/.test(r.resultado) ? 'herida' : /doble/i.test(r.resultado) ? 'doble' : /paso atr/i.test(r.resultado) ? 'pasoAtras' : 'puntoMuerto';
+    if (tipo === 'herida') {
+      const m = r.resultado.match(/^(Blanco|Negro) hiere a (Blanco|Negro)/);
+      const atacante = r.atacante ?? (m?.[1] === 'Negro' ? 'negro' : 'blanco');
+      const herido = r.herido ?? otro(atacante);
+      const dano = r.dano ?? Number(r.resultado.match(/: (\d+) punto/)?.[1] ?? 0);
+      ir(atacante, t, 0.35, { x: 150, stance: 120, crouch: 0.42, lean: 0.3, u: 1.6, f: 1.6, s: 1.58, b: -1.2, bf: -1.0 });
+      ir(herido, t + 0.3, 0.3, { x: -40, lean: -0.28, crouch: 0.25, u: 1.15, f: 1.05, s: 0.95, b: -0.2, bf: 0.3 });
+      L.golpes.push({ t0: t + 0.35, t1: t + 1.6, quien: herido, texto: '¡TOCADO!' });
+      vida[herido] = r.vida ?? (/\(vida (\d+)\)/.test(r.resultado) ? Number(r.resultado.match(/\(vida (\d+)\)/)[1]) : Math.max(0, vida[herido] - dano));
+      ponerVida(t + 0.45);
+      L.rotulos.push({ t0: t + 0.4, t1: t + 3.0, texto: `${VD_NOMBRE[atacante]} hiere a ${VD_NOMBRE[herido]}: ${dano} ${dano === 1 ? 'punto' : 'puntos'}`, quien: atacante });
+      t += 3.0;
+    } else if (tipo === 'doble') {
+      const dano = r.dano ?? Number(r.resultado.match(/pierden (\d+)/)?.[1] ?? 0);
+      for (const q of ['blanco', 'negro']) {
+        ir(q, t, 0.35, { x: 75, stance: 105, crouch: 0.4, lean: 0.28, u: 1.6, f: 1.6, s: 1.56, b: -1.2, bf: -1.0 });
+        ir(q, t + 0.55, 0.3, { x: 20, lean: -0.22, crouch: 0.25, u: 1.15, f: 1.05, s: 0.95 });
+        L.golpes.push({ t0: t + 0.4, t1: t + 1.7, quien: q, texto: '¡TOCADO!' });
+        vida[q] = r.vida?.[q] ?? Math.max(0, vida[q] - dano);
+      }
+      ponerVida(t + 0.5);
+      L.rotulos.push({ t0: t + 0.4, t1: t + 3.0, texto: `¡Doble tocado! Los dos pierden ${dano} ${dano === 1 ? 'punto' : 'puntos'}`, quien: null });
+      t += 3.0;
+    } else if (tipo === 'pasoAtras') {
+      L.rotulos.push({ t0: t, t1: t + 2.4, texto: r.resultado, quien: r.jugador ?? null });
+      t += 2.4;
+    } else {
+      L.rotulos.push({ t0: t, t1: t + 2.4, texto: r.resultado, quien: null });
+      t += 2.4;
+    }
+    // Siguiente combate: cada uno a su sitio, en guardia.
+    if (!/sigue el combate/.test(r.resultado)) {
+      for (const q of ['blanco', 'negro']) ir(q, t - 0.6, 0.6, {});
+      combate++;
+      L.combates.push({ t, n: combate });
+    }
+    t += 0.3;
+  }
+  for (const q of ['blanco', 'negro']) ir(q, t, 0.6, {});
+  // Final.
+  const vb = L.vidas[L.vidas.length - 1];
+  const ganador = partida.ganador === undefined ? (vb.blanco === vb.negro ? null : vb.blanco > vb.negro ? 'blanco' : 'negro') : partida.ganador;
+  L.final = { t0: t + 0.4, ganador };
+  L.duracion = t + 4.8;
+  // El último "combate" que empieza tras el final no cuenta.
+  if (L.combates.length > 1 && L.combates[L.combates.length - 1].t >= t - 0.4) L.combates.pop();
+  return L;
+}
+
+function vdPoseEn(claves, t) {
+  if (t <= claves[0].t) return claves[0].pose;
+  for (let i = 1; i < claves.length; i++) {
+    const b = claves[i];
+    if (t < b.t) {
+      const a = claves[i - 1];
+      const k = b.t > a.t ? (t - a.t) / (b.t - a.t) : 1;
+      return vdMezcla(a.pose, b.pose, vdSuave(k));
+    }
+  }
+  return claves[claves.length - 1].pose;
+}
+
+function vdVidaEn(vidas, t) {
+  let ant = vidas[0];
+  for (let i = 1; i < vidas.length; i++) {
+    const v = vidas[i];
+    if (t < v.t) break;
+    const k = Math.min(1, (t - v.t) / 0.6);
+    if (k < 1) return { blanco: ant.blanco + (v.blanco - ant.blanco) * k, negro: ant.negro + (v.negro - ant.negro) * k };
+    ant = v;
+  }
+  return ant;
+}
+
+// ---------- Dibujo ----------
+
+const vdV = (ang) => [Math.sin(ang), Math.cos(ang)]; // 0 abajo, π/2 al frente, π arriba
+
+function vdFondo(ctx) {
+  const pared = ctx.createLinearGradient(0, 0, 0, VD_SUELO);
+  pared.addColorStop(0, '#2a2520');
+  pared.addColorStop(1, '#4a3f33');
+  ctx.fillStyle = pared;
+  ctx.fillRect(0, 0, VD_ANCHO, VD_SUELO);
+  // Luz central sobre la pared.
+  const luz = ctx.createRadialGradient(VD_ANCHO / 2, 260, 40, VD_ANCHO / 2, 260, 620);
+  luz.addColorStop(0, 'rgba(255,225,170,0.22)');
+  luz.addColorStop(1, 'rgba(255,225,170,0)');
+  ctx.fillStyle = luz;
+  ctx.fillRect(0, 0, VD_ANCHO, VD_SUELO);
+  // Zócalo.
+  ctx.fillStyle = '#3a2d22';
+  ctx.fillRect(0, VD_SUELO - 70, VD_ANCHO, 70);
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.fillRect(0, VD_SUELO - 72, VD_ANCHO, 3);
+  // Suelo de madera.
+  const suelo = ctx.createLinearGradient(0, VD_SUELO, 0, VD_ALTO);
+  suelo.addColorStop(0, '#6e5238');
+  suelo.addColorStop(1, '#4b3624');
+  ctx.fillStyle = suelo;
+  ctx.fillRect(0, VD_SUELO, VD_ANCHO, VD_ALTO - VD_SUELO);
+  ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+  ctx.lineWidth = 1;
+  for (let y = VD_SUELO + 12, g = 8; y < VD_ALTO; y += g, g *= 1.35) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(VD_ANCHO, y);
+    ctx.stroke();
+  }
+  // Círculo imaginario de la Destreza, con su diámetro.
+  const cx = (VD_CASA.blanco + VD_CASA.negro) / 2;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(240,220,170,0.45)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.ellipse(cx, VD_SUELO + 40, 290, 42, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cx - 290, VD_SUELO + 40);
+  ctx.lineTo(cx + 290, VD_SUELO + 40);
+  ctx.moveTo(cx - 205, VD_SUELO + 10);
+  ctx.lineTo(cx + 205, VD_SUELO + 70);
+  ctx.moveTo(cx + 205, VD_SUELO + 10);
+  ctx.lineTo(cx - 205, VD_SUELO + 70);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function vdMiembro(ctx, a, b, ancho, color, linea) {
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = linea;
+  ctx.lineWidth = ancho + 3;
+  ctx.beginPath();
+  ctx.moveTo(a[0], a[1]);
+  ctx.lineTo(b[0], b[1]);
+  ctx.stroke();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = ancho;
+  ctx.stroke();
+}
+
+function vdJunta(ctx, p, r, color, linea) {
+  ctx.beginPath();
+  ctx.arc(p[0], p[1], r, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.strokeStyle = linea;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
+/** Rodilla por cinemática inversa (dobla hacia delante). */
+function vdRodilla(cadera, pie, l1, l2, dir) {
+  const dx = pie[0] - cadera[0];
+  const dy = pie[1] - cadera[1];
+  const d = Math.min(Math.hypot(dx, dy), l1 + l2 - 0.01);
+  const a = (l1 * l1 - l2 * l2 + d * d) / (2 * d);
+  const h = Math.sqrt(Math.max(0, l1 * l1 - a * a));
+  const ux = dx / d;
+  const uy = dy / d;
+  return [cadera[0] + ux * a + uy * h * dir, cadera[1] + uy * a - ux * h * dir];
+}
+
+function vdTirador(ctx, quien, pose, golpe) {
+  const ropa = VD_ROPA[quien];
+  const dir = VD_DIR[quien];
+  const X = VD_CASA[quien] + dir * pose.x;
+  const L1 = 64;
+  const L2 = 62;
+  const medio = pose.stance / 2;
+  const alto = Math.min(Math.sqrt((L1 + L2) ** 2 - medio * medio) * 0.995, (L1 + L2) * (1 - 0.2 * pose.crouch));
+  const cadera = [X, VD_SUELO - 8 - alto];
+  const pieD = [X + dir * medio, VD_SUELO - 8];
+  const pieT = [X - dir * medio, VD_SUELO - 8];
+  const rodD = vdRodilla(cadera, pieD, L1, L2, dir);
+  const rodT = vdRodilla(cadera, pieT, L1, L2, dir);
+  const eje = [Math.sin(pose.lean) * dir, -Math.cos(pose.lean)];
+  const hombro = [cadera[0] + eje[0] * 88, cadera[1] + eje[1] * 88];
+  const cuello = [cadera[0] + eje[0] * 100, cadera[1] + eje[1] * 100];
+  const cabeza = [cadera[0] + eje[0] * 124, cadera[1] + eje[1] * 124];
+  const pt = (o, ang, l) => { const [sx, cy] = vdV(ang); return [o[0] + sx * l * dir, o[1] + cy * l]; };
+  const codo = pt(hombro, pose.u, 50);
+  const mano = pt(codo, pose.f, 46);
+  const codoT = pt(hombro, pose.b, 46);
+  const manoT = pt(codoT, pose.bf, 40);
+  const punta = pt(mano, pose.s, 222);
+
+  // Sombra en el suelo.
+  ctx.fillStyle = 'rgba(0,0,0,0.28)';
+  ctx.beginPath();
+  ctx.ellipse(X, VD_SUELO - 4, 36 + medio * 0.6, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  const tinte = golpe > 0 ? `rgba(220,40,30,${0.55 * golpe})` : null;
+
+  // Brazo de atrás.
+  vdMiembro(ctx, hombro, codoT, 15, ropa.sombra, ropa.linea);
+  vdMiembro(ctx, codoT, manoT, 13, ropa.sombra, ropa.linea);
+  vdJunta(ctx, manoT, 6.5, ropa.mano, ropa.linea);
+  // Pierna de atrás.
+  vdMiembro(ctx, cadera, rodT, 21, ropa.sombra, ropa.linea);
+  vdMiembro(ctx, rodT, pieT, 16, ropa.medias, ropa.linea);
+  vdJunta(ctx, rodT, 7, ropa.junta, ropa.linea);
+  vdPie(ctx, pieT, dir, ropa);
+  // Pierna de delante.
+  vdMiembro(ctx, cadera, rodD, 22, ropa.calzas, ropa.linea);
+  vdMiembro(ctx, rodD, pieD, 17, ropa.medias, ropa.linea);
+  vdJunta(ctx, rodD, 7.5, ropa.junta, ropa.linea);
+  vdPie(ctx, pieD, dir, ropa);
+  // Gregüescos (calzas abullonadas).
+  ctx.beginPath();
+  ctx.ellipse(cadera[0], cadera[1] + 6, 22, 18, pose.lean * dir, 0, Math.PI * 2);
+  ctx.fillStyle = ropa.calzas;
+  ctx.fill();
+  ctx.strokeStyle = ropa.linea;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  // Tronco (jubón).
+  const nx = -eje[1];
+  const ny = eje[0];
+  const cin = [cadera[0] + eje[0] * 10, cadera[1] + eje[1] * 10];
+  ctx.beginPath();
+  ctx.moveTo(cin[0] + nx * 17, cin[1] + ny * 17);
+  ctx.lineTo(hombro[0] + nx * 21 + eje[0] * 10, hombro[1] + ny * 21 + eje[1] * 10);
+  ctx.quadraticCurveTo(cuello[0] + eje[0] * 2, cuello[1] + eje[1] * 2, hombro[0] - nx * 21 + eje[0] * 10, hombro[1] - ny * 21 + eje[1] * 10);
+  ctx.lineTo(cin[0] - nx * 17, cin[1] - ny * 17);
+  ctx.closePath();
+  ctx.fillStyle = ropa.jubon;
+  ctx.fill();
+  if (tinte) { ctx.fillStyle = tinte; ctx.fill(); }
+  ctx.strokeStyle = ropa.linea;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  // Cinto.
+  vdMiembro(ctx, [cin[0] + nx * 17, cin[1] + ny * 17], [cin[0] - nx * 17, cin[1] - ny * 17], 5, quien === 'blanco' ? '#9c8b6c' : '#5a4a32', ropa.linea);
+  // Cuello y cabeza sin rasgos.
+  vdMiembro(ctx, hombro, cuello, 11, ropa.cabeza, ropa.linea);
+  ctx.beginPath();
+  ctx.ellipse(cabeza[0], cabeza[1], 18, 23, pose.lean * dir, 0, Math.PI * 2);
+  ctx.fillStyle = ropa.cabeza;
+  ctx.fill();
+  ctx.strokeStyle = ropa.linea;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  // Gola.
+  ctx.beginPath();
+  ctx.ellipse(cuello[0], cuello[1] + 2, 15, 6, pose.lean * dir, 0, Math.PI * 2);
+  ctx.fillStyle = quien === 'blanco' ? '#ffffff' : '#d9d6cf';
+  ctx.fill();
+  ctx.strokeStyle = ropa.linea;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Espada ropera.
+  const [sx, sy] = [punta[0] - mano[0], punta[1] - mano[1]];
+  const ln = Math.hypot(sx, sy);
+  const ux = sx / ln;
+  const uy = sy / ln;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#4b525a';
+  ctx.lineWidth = 5.5;
+  ctx.beginPath();
+  ctx.moveTo(mano[0], mano[1]);
+  ctx.lineTo(punta[0], punta[1]);
+  ctx.stroke();
+  ctx.strokeStyle = '#d5dce4';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  // Pomo y puño.
+  vdMiembro(ctx, mano, [mano[0] - ux * 18, mano[1] - uy * 18], 5, '#6b5530', '#3b2d18');
+  vdJunta(ctx, [mano[0] - ux * 20, mano[1] - uy * 20], 4.5, '#b8975a', '#5a4520');
+  // Gavilanes (cruz).
+  vdMiembro(ctx, [mano[0] + ux * 6 - uy * 17, mano[1] + uy * 6 + ux * 17], [mano[0] + ux * 6 + uy * 17, mano[1] + uy * 6 - ux * 17], 4, '#c9a865', '#5a4520');
+  // Taza.
+  ctx.beginPath();
+  ctx.arc(mano[0] + ux * 9, mano[1] + uy * 9, 11, Math.atan2(uy, ux) - Math.PI / 2, Math.atan2(uy, ux) + Math.PI / 2);
+  ctx.fillStyle = '#b8975a';
+  ctx.fill();
+  ctx.strokeStyle = '#5a4520';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  // Brazo de la espada (por delante).
+  vdMiembro(ctx, hombro, codo, 16, ropa.jubon, ropa.linea);
+  vdJunta(ctx, codo, 6.5, ropa.junta, ropa.linea);
+  vdMiembro(ctx, codo, mano, 14, ropa.jubon, ropa.linea);
+  vdJunta(ctx, mano, 7.5, ropa.mano, ropa.linea);
+
+  return { cabeza, pecho: [cadera[0] + eje[0] * 60, cadera[1] + eje[1] * 60] };
+}
+
+function vdPie(ctx, p, dir, ropa) {
+  ctx.beginPath();
+  ctx.ellipse(p[0] + dir * 8, p[1] + 2, 15, 6, 0, 0, Math.PI * 2);
+  ctx.fillStyle = ropa.zapato;
+  ctx.fill();
+  ctx.strokeStyle = ropa.linea;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
+/** Contorno de borde serrado alrededor de una elipse. */
+function vdSerrado(ctx, cx, cy, rx, ry, dientes, hondo, fase = 0) {
+  ctx.beginPath();
+  const n = dientes * 2;
+  for (let i = 0; i <= n; i++) {
+    const a = fase + (i / n) * Math.PI * 2;
+    const k = i % 2 === 0 ? 1 : 1 - hondo;
+    const x = cx + Math.cos(a) * rx * k;
+    const y = cy + Math.sin(a) * ry * k;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+}
+
+function vdAjustarLetra(ctx, texto, peso, tam, max) {
+  let t = tam;
+  do {
+    ctx.font = `${peso} ${t}px ${VD_LETRA}`;
+    if (ctx.measureText(texto).width <= max) break;
+    t -= 2;
+  } while (t > 12);
+  return t;
+}
+
+function vdBocadillo(ctx, b, t, cabeza) {
+  const vida = t - b.t0;
+  const resto = b.t1 - t;
+  const ent = Math.min(1, vida / 0.18);
+  const sal = Math.min(1, resto / 0.12);
+  const escala = (ent < 1 ? 0.6 + 0.4 * ent + Math.sin(ent * Math.PI) * 0.12 : 1) * (sal < 1 ? 0.85 + 0.15 * sal : 1);
+  const alfa = Math.min(ent, sal);
+  const dir = VD_DIR[b.quien];
+  ctx.save();
+  ctx.font = `bold 40px ${VD_LETRA}`;
+  const w1 = ctx.measureText(b.titulo).width;
+  ctx.font = `bold 23px ${VD_LETRA}`;
+  const w2 = Math.max(ctx.measureText(b.sub).width, b.extra ? ctx.measureText(b.extra).width : 0);
+  const rx = Math.min(250, Math.max(w1, w2) / 2 + 56);
+  const ry = b.extra ? 82 : 70;
+  // Encima de su cabeza, sin salirse ni tapar el marcador de vida.
+  const cx = Math.max(rx + 12, Math.min(VD_ANCHO - rx - 12, cabeza[0] + dir * 40));
+  const cy = 108 + ry;
+  ctx.globalAlpha = alfa;
+  ctx.translate(cx, cy);
+  ctx.scale(escala, escala);
+  // Rabo hacia la cabeza.
+  const hx = cabeza[0] - cx;
+  const hy = cabeza[1] - 30 - cy;
+  ctx.beginPath();
+  ctx.moveTo(-dir * 26, ry * 0.55);
+  ctx.lineTo(hx, hy);
+  ctx.lineTo(dir * 12, ry * 0.7);
+  ctx.closePath();
+  ctx.fillStyle = '#fffdf4';
+  ctx.fill();
+  ctx.strokeStyle = '#111';
+  ctx.lineWidth = 4;
+  ctx.lineJoin = 'miter';
+  ctx.stroke();
+  // Cuerpo serrado.
+  vdSerrado(ctx, 0, 0, rx, ry, 30, 0.1, b.t0);
+  ctx.fillStyle = '#fffdf4';
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#111';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const top = b.extra ? -30 : -14;
+  vdAjustarLetra(ctx, b.titulo, 'bold', 40, rx * 1.7);
+  ctx.fillStyle = b.quien === 'blanco' ? '#1a1a1a' : '#111';
+  ctx.fillText(b.titulo, 0, top);
+  vdAjustarLetra(ctx, b.sub, 'bold', 23, rx * 1.65);
+  ctx.fillStyle = '#7a1d14';
+  ctx.fillText(b.sub, 0, top + 38);
+  if (b.extra) {
+    vdAjustarLetra(ctx, b.extra, 'bold', 20, rx * 1.6);
+    ctx.fillStyle = '#333';
+    ctx.fillText(b.extra, 0, top + 68);
+  }
+  ctx.restore();
+}
+
+function vdTocado(ctx, g, t, pecho) {
+  const k = (t - g.t0) / (g.t1 - g.t0);
+  const ent = Math.min(1, (t - g.t0) / 0.15);
+  const alfa = k > 0.75 ? (1 - k) / 0.25 : 1;
+  ctx.save();
+  ctx.globalAlpha = alfa;
+  ctx.translate(pecho[0], pecho[1] - 10);
+  ctx.scale(0.4 + 0.6 * ent, 0.4 + 0.6 * ent);
+  vdSerrado(ctx, 0, 0, 120, 70, 14, 0.42, 0.2);
+  ctx.fillStyle = '#ffd23a';
+  ctx.fill();
+  ctx.strokeStyle = '#b3180e';
+  ctx.lineWidth = 5;
+  ctx.stroke();
+  vdSerrado(ctx, 0, 0, 82, 46, 12, 0.35, 0.5);
+  ctx.fillStyle = '#e8331f';
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = `bold 30px ${VD_LETRA}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.strokeStyle = '#5a0a05';
+  ctx.lineWidth = 5;
+  ctx.strokeText(g.texto, 0, 2);
+  ctx.fillText(g.texto, 0, 2);
+  ctx.restore();
+}
+
+function vdRectRedondo(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function vdMarcador(ctx, partida, vida, vidaIni, combate) {
+  for (const q of ['blanco', 'negro']) {
+    const izq = q === 'blanco';
+    const x = izq ? 24 : VD_ANCHO - 24 - 360;
+    vdRectRedondo(ctx, x, 18, 360, 62, 12);
+    ctx.fillStyle = izq ? 'rgba(248,246,240,0.94)' : 'rgba(26,26,32,0.94)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    const tinta = izq ? '#1a1a1a' : '#f4f1ea';
+    const nombre = partida[q] && partida[q] !== VD_NOMBRE[q] ? `${VD_NOMBRE[q]} · ${partida[q]}` : VD_NOMBRE[q];
+    ctx.fillStyle = tinta;
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = izq ? 'left' : 'right';
+    vdAjustarLetra(ctx, nombre, 'bold', 22, 250);
+    ctx.fillText(nombre, izq ? x + 16 : x + 344, 36);
+    ctx.font = `bold 26px ${VD_LETRA}`;
+    ctx.textAlign = izq ? 'right' : 'left';
+    ctx.fillText(String(Math.round(vida[q])), izq ? x + 344 : x + 16, 36);
+    // Barra de vida.
+    const bx = x + 16;
+    const bw = 328;
+    vdRectRedondo(ctx, bx, 56, bw, 12, 6);
+    ctx.fillStyle = izq ? '#d6d0c2' : '#3c3c46';
+    ctx.fill();
+    const k = Math.max(0, vida[q]) / vidaIni;
+    if (k > 0) {
+      vdRectRedondo(ctx, izq ? bx : bx + bw * (1 - k), 56, bw * k, 12, 6);
+      ctx.fillStyle = k > 0.5 ? '#3f9d4a' : k > 0.25 ? '#d99a1e' : '#d2372a';
+      ctx.fill();
+    }
+  }
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(255,240,210,0.9)';
+  ctx.font = `bold 24px ${VD_LETRA}`;
+  ctx.fillText(`Combate ${combate}`, VD_ANCHO / 2, 49);
+}
+
+function vdRotulo(ctx, r, t) {
+  const alfa = Math.min(1, (t - r.t0) / 0.2, (r.t1 - t) / 0.25);
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, alfa);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const tam = vdAjustarLetra(ctx, r.texto, 'bold', 32, 1060);
+  const w = Math.min(1160, ctx.measureText(r.texto).width + 70);
+  vdRectRedondo(ctx, VD_ANCHO / 2 - w / 2, 650, w, 54, 14);
+  ctx.fillStyle = r.quien === 'blanco' ? 'rgba(248,246,240,0.95)' : r.quien === 'negro' ? 'rgba(22,22,28,0.95)' : 'rgba(120,24,16,0.95)';
+  ctx.fill();
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = r.quien === 'blanco' ? '#151515' : '#fff';
+  ctx.font = `bold ${tam}px ${VD_LETRA}`;
+  ctx.fillText(r.texto, VD_ANCHO / 2, 678);
+  ctx.restore();
+}
+
+function vdCartel(ctx, alfa, titulo, lineas) {
+  ctx.save();
+  ctx.globalAlpha = alfa;
+  ctx.fillStyle = 'rgba(15,12,10,0.78)';
+  ctx.fillRect(0, 0, VD_ANCHO, VD_ALTO);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  vdSerrado(ctx, VD_ANCHO / 2, 300, 470, 150, 34, 0.08, 0.1);
+  ctx.fillStyle = '#fffdf4';
+  ctx.fill();
+  ctx.strokeStyle = '#111';
+  ctx.lineWidth = 5;
+  ctx.stroke();
+  ctx.fillStyle = '#7a1d14';
+  vdAjustarLetra(ctx, titulo, 'bold', 64, 780);
+  ctx.fillText(titulo, VD_ANCHO / 2, 255);
+  ctx.fillStyle = '#1a1a1a';
+  lineas.forEach((l, i) => {
+    vdAjustarLetra(ctx, l, 'bold', 28, 760);
+    ctx.fillText(l, VD_ANCHO / 2, 318 + i * 40);
+  });
+  ctx.restore();
+}
+
+/**
+ * Crea el vídeo de `partida` (una entrada del historial) en `canvas`.
+ * Devuelve { duracion, dibujar(t), reproducir(alTerminar, alAvanzar), parar(), grabar(alAvanzar) }.
+ */
+function crearVideo(canvas, partida, cartas) {
+  canvas.width = VD_ANCHO;
+  canvas.height = VD_ALTO;
+  const ctx = canvas.getContext('2d');
+  const L = vdLineaDeTiempo(partida, cartas);
+  const vidaIni = partida.vidaInicial ?? 10;
+  let rafId = null;
+  let grabadora = null;
+
+  function dibujar(t) {
+    ctx.clearRect(0, 0, VD_ANCHO, VD_ALTO);
+    vdFondo(ctx);
+    const golpeDe = (q) => {
+      const g = L.golpes.find((x) => x.quien === q && t >= x.t0 && t <= x.t1);
+      return g ? Math.max(0, 1 - (t - g.t0) / 0.8) : 0;
+    };
+    const cuerpos = {};
+    // El que ataca, delante.
+    const orden = L.bocadillos.find((b) => t >= b.t0 && t <= b.t1)?.quien === 'blanco' ? ['negro', 'blanco'] : ['blanco', 'negro'];
+    for (const q of orden) cuerpos[q] = vdTirador(ctx, q, vdPoseEn(L.claves[q], t), golpeDe(q));
+    const combate = [...L.combates].reverse().find((c) => t >= c.t)?.n ?? 1;
+    vdMarcador(ctx, partida, vdVidaEn(L.vidas, t), vidaIni, combate);
+    for (const g of L.golpes) if (t >= g.t0 && t <= g.t1) vdTocado(ctx, g, t, cuerpos[g.quien].pecho);
+    for (const b of L.bocadillos) if (t >= b.t0 && t <= b.t1) vdBocadillo(ctx, b, t, cuerpos[b.quien].cabeza);
+    for (const r of L.rotulos) if (t >= r.t0 && t <= r.t1) vdRotulo(ctx, r, t);
+    // Marca de agua.
+    ctx.save();
+    ctx.globalAlpha = 0.55;
+    ctx.fillStyle = '#f3e6c8';
+    ctx.font = `bold 18px ${VD_LETRA}`;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText('Verdadera Destreza', VD_ANCHO - 18, VD_ALTO - 14);
+    ctx.restore();
+    // Portada y final.
+    const nb = partida.blanco && partida.blanco !== 'Blanco' ? `${partida.blanco} (Blanco)` : 'Blanco';
+    const nn = partida.negro && partida.negro !== 'Negro' ? `${partida.negro} (Negro)` : 'Negro';
+    if (t < 3.2) vdCartel(ctx, Math.min(1, (3.2 - t) / 0.5), 'Verdadera Destreza', [`${nb}  contra  ${nn}`, partida.fecha ? new Date(partida.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) : '']);
+    if (t >= L.final.t0) {
+      const g = L.final.ganador;
+      const v = L.vidas[L.vidas.length - 1];
+      vdCartel(ctx, Math.min(1, (t - L.final.t0) / 0.5), g ? `¡Gana ${g === 'blanco' ? nb : nn}!` : '¡Empate!', [`Vida final: Blanco ${v.blanco} · Negro ${v.negro}`]);
+    }
+  }
+
+  function reproducir(alTerminar, alAvanzar) {
+    if (rafId) cancelAnimationFrame(rafId);
+    const inicio = performance.now();
+    const paso = () => {
+      const t = (performance.now() - inicio) / 1000;
+      dibujar(Math.min(t, L.duracion));
+      alAvanzar?.(t, L.duracion);
+      if (t < L.duracion) rafId = requestAnimationFrame(paso);
+      else { rafId = null; alTerminar?.(); }
+    };
+    rafId = requestAnimationFrame(paso);
+  }
+
+  function parar() {
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = null;
+    if (grabadora?.state === 'recording') { grabadora.cancelado = true; grabadora.stop(); }
+  }
+
+  /** Reproduce desde el principio grabando. Resuelve con { blob, extension }. */
+  function grabar(alAvanzar) {
+    const tipos = ['video/mp4;codecs=avc1.42E01E', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
+    const tipo = tipos.find((x) => window.MediaRecorder?.isTypeSupported?.(x));
+    if (!tipo || !canvas.captureStream) return Promise.reject(new Error('Este navegador no puede grabar vídeo'));
+    const flujo = canvas.captureStream(30);
+    const rec = new MediaRecorder(flujo, { mimeType: tipo, videoBitsPerSecond: 1_500_000 });
+    grabadora = rec;
+    const trozos = [];
+    rec.ondataavailable = (e) => e.data.size && trozos.push(e.data);
+    return new Promise((ok, mal) => {
+      rec.onstop = () => ok({ completo: !rec.cancelado, blob: new Blob(trozos, { type: tipo.split(';')[0] }), extension: tipo.startsWith('video/mp4') ? 'mp4' : 'webm' });
+      rec.onerror = (e) => mal(e.error ?? new Error('Error al grabar'));
+      dibujar(0);
+      const fin = () => setTimeout(() => rec.state === 'recording' && rec.stop(), 300);
+      parar();
+      grabadora = rec;
+      rec.start(1000);
+      reproducir(fin, alAvanzar);
+    });
+  }
+
+  dibujar(0);
+  return { duracion: L.duracion, linea: L, dibujar, reproducir, parar, grabar };
+}
+
 // ---- ui/app.js ----
 // Interfaz del juego: tablero, selección de cartas, validación en vivo y turnos del ordenador.
+
+
 
 
 
@@ -2500,9 +3291,66 @@ function htmlPartidaHistorial(p) {
     <details data-id="${p.id}" ${abiertas.has(p.id) ? 'open' : ''}>
       <summary><span class="h-fecha">${fecha}</span> <span class="h-quien">${escapar(p.blanco)} (Blanco) contra ${escapar(p.negro)} (Negro)</span> <span class="h-res">${res} · ${p.vida.blanco}-${p.vida.negro}</span></summary>
       ${cronica}
-      <div class="botones"><button class="secundario" data-accion="borrar-partida" data-id="${p.id}">Borrar esta partida</button></div>
+      <div class="botones">${p.secuencia?.length ? `<button class="secundario" data-accion="ver-video" data-id="${p.id}">🎬 Ver vídeo</button>` : ''}<button class="secundario" data-accion="borrar-partida" data-id="${p.id}">Borrar esta partida</button></div>
     </details>
   </li>`;
+}
+
+// ---------- Vídeo de una partida ----------
+
+let videoActual = null;
+const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
+function abrirVideo(id) {
+  const p = leerPartidas().find((x) => x.id === id);
+  if (!p?.secuencia?.length) return;
+  cerrarVideo();
+  videoActual = crearVideo($('#lienzo-video'), p, null);
+  videoActual.partida = p;
+  const enlace = $('#enlace-video');
+  enlace.hidden = true;
+  $('#estado-video').textContent = `Duración: ${mmss(videoActual.duracion)}.`;
+  for (const b of document.querySelectorAll('#dlg-video [data-accion^="video-"]')) b.disabled = false;
+  $('#dlg-video').showModal();
+  reproducirVideo();
+}
+
+function reproducirVideo() {
+  if (!videoActual || videoActual.grabando) return;
+  videoActual.reproducir(null, (t, d) => ($('#estado-video').textContent = `${mmss(Math.min(t, d))} / ${mmss(d)}`));
+}
+
+/** Reproduce el vídeo desde el principio grabándolo y deja un enlace para guardarlo. */
+async function grabarVideo() {
+  const v = videoActual;
+  if (!v || v.grabando) return;
+  v.grabando = true;
+  const botones = document.querySelectorAll('#dlg-video [data-accion^="video-"]');
+  for (const b of botones) b.disabled = true;
+  try {
+    const r = await v.grabar((t, d) => ($('#estado-video').textContent = `Grabando el vídeo: ${mmss(Math.min(t, d))} / ${mmss(d)}. Espera a que termine.`));
+    if (videoActual !== v || !r.completo) return;
+    const f = new Date(v.partida.fecha);
+    const nombre = `destreza-${f.getFullYear()}${String(f.getMonth() + 1).padStart(2, '0')}${String(f.getDate()).padStart(2, '0')}-${v.partida.blanco}-${v.partida.negro}.${r.extension}`.replace(/[^\w.-]+/g, '_');
+    const enlace = $('#enlace-video');
+    if (enlace.href) URL.revokeObjectURL(enlace.href);
+    enlace.href = URL.createObjectURL(r.blob);
+    enlace.download = nombre;
+    enlace.hidden = false;
+    $('#estado-video').textContent = `Vídeo listo (${(r.blob.size / 1048576).toFixed(1)} MB). Pulsa «Guardar vídeo».`;
+    enlace.click();
+  } catch (err) {
+    $('#estado-video').textContent = err.message;
+  } finally {
+    v.grabando = false;
+    for (const b of botones) b.disabled = false;
+  }
+}
+
+function cerrarVideo() {
+  videoActual?.parar();
+  videoActual = null;
+  if ($('#dlg-video').open) $('#dlg-video').close();
 }
 
 /** La parada (Reparo o Recoger sola) hay que contestarla. */
@@ -2550,40 +3398,10 @@ function turnoOrdenador() {
 
 // ---------- Registro ----------
 
-/**
- * Secuencia que se puede reproducir con las cartas reales: solo las acciones que llegan a hacerse.
- * Cuando una serie es intervenida en su carta i, las cartas posteriores no llegan a ejecutarse y
- * se quitan; la carta intervenida queda marcada como contestada. Entre combates hay un resultado.
- * Pasos: { jugador, cartas: [nombres], contra?: nombre, contestada?: true } o { resultado: texto }.
- */
+/** Secuencia reproducible (ver ui/secuencia.js). */
 function anotarSecuencia(ev) {
   if (!ui.secuencia) ui.secuencia = [];
-  const sec = ui.secuencia;
-  const nombre = (inst) => defDe(ui.config, inst).nombre;
-  switch (ev.tipo) {
-    case 'serie': {
-      if (ev.respuesta) {
-        // La serie intervenida es la última anotada del rival: se corta tras la carta contestada.
-        for (let k = sec.length - 1; k >= 0; k--) {
-          if (sec[k].resultado) break;
-          if (sec[k].jugador !== ev.jugador) {
-            sec[k].cartas = sec[k].cartas.slice(0, ev.indice + 1);
-            sec[k].contestada = true;
-            break;
-          }
-        }
-      }
-      sec.push({ jugador: ev.jugador, cartas: ev.cartas.map(nombre), contra: ev.respuesta ? nombre(ev.contra) : null });
-      break;
-    }
-    case 'herida': sec.push({ resultado: `${N[ev.atacante]} hiere a ${N[ev.herido]}: ${puntos(ev.dano)} (vida ${ev.vida})` }); break;
-    case 'golpeDoble': sec.push({ resultado: `Doble tocado: los dos pierden ${puntos(ev.dano)}` }); break;
-    case 'pasoAtrasCumplido': sec.push({ resultado: `Paso atrás de ${N[ev.jugador]} cumplido, sin herida` }); break;
-    case 'puntoMuerto':
-      sec.push({ resultado: ev.sigue ? `Nadie contesta la parada de ${N[ev.jugador]}: sigue el combate` : ev.barajaSolo ? `Nadie contesta la parada de ${N[ev.jugador]}: solo ${N[ev.barajaSolo]} baraja` : `Nadie contesta la parada de ${N[ev.jugador]}: punto muerto` });
-      break;
-    default:
-  }
+  anotarPaso(ui.secuencia, ev, (inst) => defDe(ui.config, inst).nombre);
 }
 
 /** HTML de la secuencia de una partida, por combates. */
@@ -3069,6 +3887,10 @@ function enlazarEventos() {
       else if (a === 'cerrar-ranking') $('#dlg-ranking').close();
       else if (a === 'borrar-ranking') { if (confirm('¿Borrar el historial de este dispositivo? Las favoritas se conservan.')) { borrarRanking(); abrirRanking(); } }
       else if (a === 'favorita') { ev.preventDefault(); alternarFavorita(boton.dataset.id); abrirRanking(); }
+      else if (a === 'ver-video') abrirVideo(boton.dataset.id);
+      else if (a === 'video-play') reproducirVideo();
+      else if (a === 'video-grabar') grabarVideo();
+      else if (a === 'cerrar-video') cerrarVideo();
       else if (a === 'borrar-partida') { if (confirm('¿Borrar esta partida del historial?')) { borrarPartida(boton.dataset.id); abrirRanking(); } }
       else if (a === 'filtro-historial') { filtroHistorial = boton.dataset.filtro; abrirRanking(); }
       else if (a === 'cerrar-reglas') $('#dlg-reglas').close();
@@ -3079,6 +3901,7 @@ function enlazarEventos() {
     const rival = ev.target.closest('[data-rival]');
     if (rival && rival.dataset.rival !== '') return alPulsarRival(Number(rival.dataset.rival));
   });
+  $('#dlg-video').addEventListener('close', () => { videoActual?.parar(); videoActual = null; });
   document.addEventListener('keydown', (ev) => {
     if (ev.key === 'Escape' && !$('#detalle').hidden) cerrarDetalle();
     if (ev.key === 'Enter' && ev.target.closest?.('.carta[data-inst]')) ev.target.click();
