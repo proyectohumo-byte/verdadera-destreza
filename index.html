@@ -597,7 +597,7 @@ button.negativo:hover { background: linear-gradient(#7d211c, #5a1410); }
       <li>Tras una herida, todo vuelve a empezar salvo las vidas, y declara quien hirió.</li>
       <li><b>Reparo, una parada mala</b>: no hiere, pero <b>hay que contestarlo</b>: no se puede dejar pasar. Si no tienes con qué atacar, robas de tu pila de una en una hasta poder intervenir el Reparo con una serie que termine hiriendo (el paso atrás no cuenta: siempre es optativo). Si se te acaba la pila sin poder, <b>solo tú</b> recoges y barajas tu mazo y robas una mano nueva; quien paró se queda con su mano, su pila y sus cartas en la mesa. Declaras tú.</li>
       <li><b>Espada sujeta</b>: una carta rival que va justo detrás de una carta azul, verde o amarilla (Atajo, Transferir, Recoger, Reparo, Suspensión, Diversión) tiene tu espada controlada y lleva un candado 🔒 en la mesa. Las cartas que sujetan llevan abajo el sello de las roperas cruzadas con una flecha hacia la carta siguiente. No puedes contestarla atacando (con Estocada o Cuchillada). Puedes liberar tu espada interviniendo la carta que te sujeta, parar con Recoger o Reparo, o dar un paso atrás. Detrás de un Librar las espadas van libres.</li>
-      <li><b>Estocada contra Estocada: golpe doble</b>. Los dos pierden 1 punto y declara quien tiró la primera estocada. Si los dos llegan a 0 a la vez, empate. La Estocada gana al tajo (Cuchillada) por alcance; el tajo es más contundente (+2).</li>
+      <li><b>Estocada contra Estocada: doble tocado</b>. Los dos pierden 1 punto y declara quien tiró la primera estocada. Si los dos llegan a 0 a la vez, empate. La Estocada gana al tajo (Cuchillada) por alcance; el tajo es más contundente (+2).</li>
       <li><b>Paso atrás (Compás extraño)</b>: tiene estrella verde y roja, así que solo responde a Recoger, Reparo, Estocada o Cuchillada. Solo una Estocada puede cortarlo. Si nadie lo corta, todas las cartas vuelven a las manos sin herida y declara quien no lo dio. Cada uno puede darlo una vez entre heridas (un paso atrás cortado también cuenta).</li>
     </ol>
     <div class="botones"><button class="principal" data-accion="cerrar-reglas">Cerrar</button></div>
@@ -2405,7 +2405,7 @@ function jugar(jugada) {
     const texto = `Estocada contra Estocada: los dos se alcanzan a la vez y pierden ${puntos(doble.dano)}. Vida de Blanco: ${doble.vida.blanco}; de Negro: ${doble.vida.negro}.`;
     ui.pausa = despues.fase === 'fin'
       ? { estado: antes, titulo: despues.empate ? '¡Empate!' : `¡Gana ${N[despues.ganador]}!`, texto: `${texto} ${despues.empate ? 'Los dos se quedan a 0 a la vez.' : ''}`, fin: true }
-      : { estado: { ...antes, mesa: doble.mesa, mano: doble.mano, vida: doble.vida }, titulo: 'Golpe doble', texto: `${texto} ${textoReparto()} Ambos recuperan el paso atrás. Declara ${N[doble.primero]}, que tiraba la primera estocada.` };
+      : { estado: { ...antes, mesa: doble.mesa, mano: doble.mano, vida: doble.vida }, titulo: 'Doble tocado', texto: `${texto} ${textoReparto()} Ambos recuperan el paso atrás. Declara ${N[doble.primero]}, que tiraba la primera estocada.` };
   } else if (muerto) {
     const parada = `Nadie contesta el ${defDe(ui.config, muerto.carta).nombre} de ${N[muerto.jugador]}: la parada no hiere y no hay herida.`;
     ui.pausa = muerto.sigue
@@ -2577,7 +2577,7 @@ function anotarSecuencia(ev) {
       break;
     }
     case 'herida': sec.push({ resultado: `${N[ev.atacante]} hiere a ${N[ev.herido]}: ${puntos(ev.dano)} (vida ${ev.vida})` }); break;
-    case 'golpeDoble': sec.push({ resultado: `Golpe doble: los dos pierden ${puntos(ev.dano)}` }); break;
+    case 'golpeDoble': sec.push({ resultado: `Doble tocado: los dos pierden ${puntos(ev.dano)}` }); break;
     case 'pasoAtrasCumplido': sec.push({ resultado: `Paso atrás de ${N[ev.jugador]} cumplido, sin herida` }); break;
     case 'puntoMuerto':
       sec.push({ resultado: ev.sigue ? `Nadie contesta la parada de ${N[ev.jugador]}: sigue el combate` : ev.barajaSolo ? `Nadie contesta la parada de ${N[ev.jugador]}: solo ${N[ev.barajaSolo]} baraja` : `Nadie contesta la parada de ${N[ev.jugador]}: punto muerto` });
@@ -2621,7 +2621,7 @@ function registrar(ev, antes) {
     case 'costeApertura': t = `Abrir con ${defDe(ui.config, ev.carta).nombre} le cuesta a ${N[ev.jugador]} ${puntos(ev.coste)} de vida. Vida: ${ev.vida}.`; break;
     case 'pasoAtrasCumplido': t = `El paso atrás de ${N[ev.jugador]} se cumple. Declara ${N[RIVAL[ev.jugador]]}.`; break;
     case 'fin': t = ev.empate ? 'Empate: los dos se quedan a 0 a la vez.' : `Gana ${N[ev.ganador]}.`; break;
-    case 'golpeDoble': t = `Golpe doble: Estocada contra Estocada, los dos pierden ${puntos(ev.dano)}. Declara ${N[ev.primero]}.`; break;
+    case 'golpeDoble': t = `Doble tocado: Estocada contra Estocada, los dos pierden ${puntos(ev.dano)}. Declara ${N[ev.primero]}.`; break;
     case 'puntoMuerto': t = `Punto muerto: nadie contesta la parada de ${N[ev.jugador]}. ${ev.sigue ? `El combate sigue; ataca ${N[ev.sigue]}.` : ev.barajaSolo ? `Solo ${N[ev.barajaSolo]} recoge y baraja; declara ${N[ev.barajaSolo]}.` : `Se reparte de nuevo; declara ${N[RIVAL[ev.jugador]]}.`}`; break;
     default: return;
   }
@@ -2977,7 +2977,7 @@ function describirCarta(def) {
   if (def.modificador) reglas.push(`Modificador ${def.modificador}.`);
   if (def.cantidad > 1) reglas.push(`Hay ${def.cantidad} en cada mazo.`);
   if (def.noHiere) reglas.push(def.flechas.length ? 'Sola es una parada: no hiere y hay que contestarla. Seguida de otras cartas es un ataque normal.' : 'Parada: no hiere y hay que contestarla.');
-  if (def.golpeDobleContra) reglas.push(`Contra ${listaO(def.golpeDobleContra.map(nombre))}: golpe doble, los dos pierden ${puntos(def.danoGolpeDoble ?? 1)}.`);
+  if (def.golpeDobleContra) reglas.push(`Contra ${listaO(def.golpeDobleContra.map(nombre))}: doble tocado, los dos pierden ${puntos(def.danoGolpeDoble ?? 1)}.`);
   filas.push(['Reglas', reglas.join(' ')]);
   if (def.nota) filas.push(['Esgrima', def.nota]);
   return filas;
