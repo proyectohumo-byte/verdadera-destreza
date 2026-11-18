@@ -328,9 +328,22 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--sangre); }
 .cj-sumando b { font-size: 20px; }
 .cj-mas { font-size: 24px; color: var(--tinta); }
 .cj-total { min-width: 44px; height: 44px; border-radius: 50%; background: var(--sangre); color: #fff; font-size: 28px; line-height: 44px; text-align: center; }
-.cj-prepara { display: flex; align-items: center; justify-content: center; gap: 14px; }
-.cj-pila { position: relative; box-shadow: 3px 3px 0 #6e5c46, 6px 6px 0 #a08d70; border-radius: 6px; }
-.cj-pila strong { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 30px; text-shadow: 0 0 5px #000, 0 0 2px #000; }
+.cj-pantalla { --w: clamp(36px, calc((100vw - 110px) / 5.6), 54px); width: 100%; max-width: 460px; border: 2px solid var(--tinta); border-radius: 6px; overflow: hidden; background: var(--papel-claro); }
+.cj-pantalla .cj-n { position: absolute; left: 12px; top: 50%; margin: -13px 0 0 0; }
+.cj-p-cabecera, .cj-p-zona, .cj-p-pista, .cj-p-pie { position: relative; padding: 7px 8px 7px 44px; display: flex; align-items: center; justify-content: center; }
+.cj-p-cabecera { gap: 8px; background: #2a1f16; }
+.cj-barra { flex: 1; min-width: 0; display: flex; align-items: center; gap: 5px; color: #efe5cf; font-size: 12px; }
+.cj-barra i { flex: 1; height: 7px; border-radius: 2px; background: #efe5cf; }
+.cj-barra.negro i { background: var(--sangre-claro); }
+.cj-p-pista { min-height: calc(var(--w) * 1.45 + 18px); box-sizing: border-box; background: var(--papel-oscuro); border-block: 1px solid var(--tinta-tenue); }
+.cj-p-pie { justify-content: flex-end; padding-block: 5px; }
+.cj-p-cronica { padding: 2px 11px; border-radius: 12px; background: #2a1f16; color: #efe5cf; font-size: 12px; }
+.cj-leyenda-pantalla { flex: none; width: 100%; max-width: 460px; box-sizing: border-box; }
+.cj-toque { position: absolute; z-index: 5; left: 50%; bottom: -12px; transform: translateX(-50%); display: flex; align-items: center; font-size: 24px; line-height: 1; white-space: nowrap; filter: drop-shadow(0 1px 1px #fff); }
+.cj-toque b { width: 19px; height: 19px; margin-right: 1px; border-radius: 50%; background: var(--sangre); color: #fff; font: 700 13px/19px var(--serif); text-align: center; }
+.cj-tic { position: absolute; z-index: 5; right: -9px; top: 50%; width: 34px; height: 34px; margin-top: -17px; border-radius: 50%; background: #2f7d3a; color: #fff; font: 700 21px/34px var(--serif); text-align: center; box-shadow: 0 0 0 2px #fff, 0 2px 5px #0006; }
+.cj-boton { padding: 7px 14px; border-radius: 3px; background: var(--sangre); color: #fff; font-size: 15px; }
+.cj-marco:has(.cj-toque) .cj-escena { padding-bottom: 12px; }
 .cj-anatomia { --w: 180px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 18px 28px; width: 100%; }
 .cj-grande { position: relative; width: var(--w); flex-shrink: 0; }
 .cj-n { position: absolute; z-index: 4; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; background: var(--sangre); color: #fff; font: 700 15px/26px var(--serif); text-align: center; box-shadow: 0 0 0 2px #fff; }
@@ -2025,12 +2038,17 @@ function cjSerie(cfg, cartas, negro = false) {
   }).join('<span class="cj-enlace">→</span>')}</div>`;
 }
 
-/** Celda de la mesa. c: { id, negro, foco, diana, tachada, apunta, candado } */
+/** Celda de la mesa. c: { id, negro, foco, diana, tachada, apunta, candado, apagadaMano, toque, tic } */
 function cjCelda(cfg, c, negro) {
   if (!c) return '<div class="cj-celda"></div>';
   const d = typeof c === 'string' ? { id: c } : c;
-  const clases = [d.diana ? 'cj-diana' : '', d.apagada ? 'cj-apagada' : ''].filter(Boolean);
-  return `<div class="cj-celda ${d.tachada ? 'cj-tachada' : ''} ${d.apunta ? 'cj-apunta' : ''}">${cjCarta(cfg, d.id, { negro, foco: d.foco, clases })}${d.candado ? '<span class="cj-candado" role="img" aria-label="Espada sujeta">🔒</span>' : ''}</div>`;
+  const clases = [d.diana ? 'cj-diana' : '', d.apagada ? 'cj-apagada' : '', d.apagadaMano ? 'no-valida' : ''].filter(Boolean);
+  return `<div class="cj-celda ${d.tachada ? 'cj-tachada' : ''} ${d.apunta ? 'cj-apunta' : ''}">${cjCarta(cfg, d.id, { negro, foco: d.foco, clases })}${d.candado ? '<span class="cj-candado" role="img" aria-label="Espada sujeta">🔒</span>' : ''}${d.toque ? `<span class="cj-toque" role="img" aria-label="Tócala">${d.toque === true ? '' : `<b>${d.toque}</b>`}👆</span>` : ''}${d.tic ? '<span class="cj-tic" role="img" aria-label="Botón verde de jugar">✓</span>' : ''}</div>`;
+}
+
+/** Fila de cartas sin línea de combate (tu mano o tu serie en la pantalla). */
+function cjFilaSuelta(cfg, celdas, negro = false) {
+  return `<div class="cj-fila" style="grid-template-columns:repeat(${celdas.length}, var(--w))">${celdas.map((c) => cjCelda(cfg, c, negro)).join('')}</div>`;
 }
 
 /** Mesa: filas de Negro arriba, la línea de combate y filas de Blanco abajo. */
@@ -2054,7 +2072,7 @@ function cjSuma(cfg, partes, total) {
 
 const cjSeccion = (id, titulo, texto, escenas = '') => `<section class="cj-seccion" id="cj-${id}"><h3>${titulo}</h3>${texto ? `<p>${texto}</p>` : ''}${escenas ? `<div class="cj-marcos">${escenas}</div>` : ''}</section>`;
 
-const CJ_INDICE = [['carta', 'La carta'], ['simbolos', 'Símbolos'], ['preparacion', 'Preparación'], ['serie', 'La serie'], ['turno', 'El turno'], ['herida', 'La herida'], ['sujeta', 'Espada sujeta'], ['doble', 'Doble tocado'], ['reparo', 'Reparo'], ['paso', 'Paso atrás'], ['tajo', 'Estocada y tajo'], ['ejemplo', 'Ejemplo'], ['fin', 'Fin']];
+const CJ_INDICE = [['pantalla', 'La pantalla'], ['carta', 'La carta'], ['simbolos', 'Símbolos'], ['serie', 'La serie'], ['turno', 'El turno'], ['jugar', 'Jugar tus cartas'], ['herida', 'La herida'], ['sujeta', 'Espada sujeta'], ['doble', 'Doble tocado'], ['reparo', 'Reparo'], ['paso', 'Paso atrás'], ['tajo', 'Estocada y tajo'], ['ejemplo', 'Ejemplo'], ['fin', 'Fin']];
 
 /** HTML completo del «Cómo jugar». */
 function htmlComoJugar(cfg) {
@@ -2074,13 +2092,29 @@ function htmlComoJugar(cfg) {
     cjMarco(false, m([[{ id: 'estocada', diana: true }]], [[{ id: 'librar', apunta: true }]]), { cols: 2, pie: 'Sin estrella roja, no responde' }),
   ].join('');
 
-  const preparacion = cjMarco(null, `<div class="cj-prepara"><div class="cj-pila">${htmlDorso(false)}<strong>8</strong></div><div class="cj-serie">${['atajo', 'librar', 'estocada', 'recoger', 'compas'].map((id) => c(id)).join('')}</div></div>${cjVida(10)}`, { ancho: true, cols: 6.5, pie: 'Pila de robo, 5 cartas en la mano y 10 puntos de vida' });
+  const barra = (nombre, clase) => `<div class="cj-barra ${clase}"><span>${nombre}</span><i></i><strong>10</strong></div>`;
+  const pantalla = cjMarco(null, `<div class="cj-pantalla">
+      <div class="cj-p-cabecera"><span class="cj-n">1</span>${barra('Blanco', 'blanco')}${barra('Negro', 'negro')}</div>
+      <div class="cj-p-zona"><span class="cj-n">2</span><div class="cj-serie">${Array.from({ length: 5 }, () => htmlDorso(true)).join('')}</div></div>
+      <div class="cj-p-pista"><span class="cj-n">3</span><div class="cj-serie">${c('atajo', { negro: true })}${c('estocada', { negro: true })}</div></div>
+      <div class="cj-p-zona"><span class="cj-n">4</span><div class="cj-serie">${c('librar')}${c('estocada')}${c('atajo', { clases: ['no-valida'] })}${c('suspension', { clases: ['no-valida'] })}${c('recoger')}</div></div>
+      <div class="cj-p-pie"><span class="cj-n">5</span><span class="cj-p-cronica">Crónica</span></div>
+    </div>
+    <ol class="cj-leyenda cj-leyenda-pantalla"><li><b>Vida</b> y paso atrás de cada esgrimista</li><li><b>Mano del rival,</b> boca abajo, y su pila de robo</li><li><b>Pista:</b> aquí se juegan las series</li><li><b>Tu mano</b> y tu pila de robo. Las cartas apagadas no se pueden jugar ahora</li><li><b>Crónica:</b> todo lo ocurrido en el combate</li></ol>`, { ancho: true });
+
+  const jugar = [
+    cjMarco(null, cjFilaSuelta(cfg, [{ id: 'atajo', toque: 1 }, { id: 'suspension', toque: 2 }, { id: 'estocada', toque: 3 }]), { paso: 1, pie: 'Toca tus cartas en orden o arrástralas a la pista' }),
+    cjMarco(null, cjFilaSuelta(cfg, ['atajo', 'suspension', { id: 'estocada', tic: true }]), { paso: 2, pie: 'Toca el ✓ verde para jugar la serie' }),
+    cjMarco(null, m([[{ id: 'atajo', diana: true, toque: true }, 'suspension', 'estocada']], []), { paso: 1, pie: 'Para responder, toca la carta rival que quieres intervenir' }),
+    cjMarco(null, m([[{ id: 'atajo', diana: true }, { id: 'suspension', tachada: true }, { id: 'estocada', tachada: true }]], [['librar', { id: 'estocada', tic: true }]]), { paso: 2, pie: 'Elige tus cartas y toca el ✓ verde' }),
+    cjMarco(null, '<span class="cj-boton">No intervenir (recibes 3 puntos)</span>', { ancho: true, pie: 'Si no quieres o no puedes responder, recibes la herida' }),
+  ].join('');
 
   const serie = [
     cjMarco(true, s(['atajo', 'suspension', 'estocada']), { pie: 'Termina hiriendo' }),
     cjMarco(false, s(['atajo', 'suspension']), { cols: 2, pie: 'No termina hiriendo' }),
     cjMarco(true, `<div class="cj-serie">${c('reparo')}${c('compas')}</div>`, { cols: 2, pie: 'Solo estas dos van solas' }),
-    cjMarco(null, `<div class="cj-serie">${c('atajo')}${c('suspension')}${c('estocada')}<span class="cj-enlace">⇒</span>${htmlDorso(false)}${htmlDorso(false)}${htmlDorso(false)}</div>`, { ancho: true, cols: 6.5, pie: 'Juegas 3 y robas 3' }),
+    cjMarco(null, `<div class="cj-serie">${c('atajo')}${c('suspension')}${c('estocada')}<span class="cj-enlace">⇒</span>${htmlDorso(false)}${htmlDorso(false)}${htmlDorso(false)}</div>`, { ancho: true, cols: 6.5, pie: 'Juegas 3 cartas y el juego te da 3 de tu pila' }),
   ].join('');
 
   const turno = [
@@ -2103,7 +2137,7 @@ function htmlComoJugar(cfg) {
 
   const doble = cjMarco(null, `${m([[{ id: 'estocada', diana: true }]], [[{ id: 'estocada', apunta: true }]])}${cjVida(9, 'Negro')}${cjVida(9, 'Blanco')}`, { ancho: true, cols: 3, pie: 'Los dos pierden 1. Declara quien tiró la primera' });
 
-  const flujo = `<ol class="cj-flujo"><li>${c('reparo', { negro: true })}<span>No hiere, pero hay que contestarlo</span></li><li>${htmlDorso(false)}<span>¿No puedes? Roba de tu pila hasta poder</span></li><li class="cj-salidas"><strong>Se acaba la pila</strong><span><b>1.</b> Si puedes atacar, atacas.</span><span><b>2.</b> Si no, ataca de nuevo quien paró y nadie recoge.</span><span><b>3.</b> Si tampoco puede, solo tú recoges, barajas, robas 5 y <b>contestas el Reparo</b>.</span></li></ol>`;
+  const flujo = `<ol class="cj-flujo"><li>${c('reparo', { negro: true })}<span>No hiere, pero hay que contestarlo</span></li><li>${htmlDorso(false)}<span>¿No puedes? El juego te da cartas de tu pila hasta que puedas</span></li><li class="cj-salidas"><strong>Se acaba la pila</strong><span><b>1.</b> Si puedes atacar, atacas.</span><span><b>2.</b> Si no, ataca de nuevo quien paró.</span><span><b>3.</b> Si tampoco puede, el juego baraja solo tu mazo, te da 5 cartas nuevas y <b>contestas el Reparo</b>.</span></li></ol>`;
   const reparo = [
     cjMarco(true, m([[{ id: 'atajo', apagada: true }, { id: 'suspension', apagada: true }, { id: 'estocada', diana: true }]], [[null, null, { id: 'reparo', apunta: true }]]), { pie: '1 + 1 + 1 = 3: menos de 4' }),
     cjMarco(false, m([[{ id: 'atajo', apagada: true }, { id: 'suspension', apagada: true }, { id: 'cuchillada', diana: true }]], [[null, null, { id: 'reparo', apunta: true }]]), { pie: '1 + 1 + 2 = 4: no es menos de 4' }),
@@ -2138,16 +2172,17 @@ function htmlComoJugar(cfg) {
   ].join('');
 
   return `<nav class="cj-indice" aria-label="Apartados">${CJ_INDICE.map(([id, t]) => `<a href="#cj-${id}">${t}</a>`).join('')}</nav>
-    ${cjSeccion('carta', 'La carta', 'Cada esgrimista tiene un mazo igual de 13 cartas. Mantén pulsada una carta en la partida para verla en grande.', cjMarco(null, carta, { ancho: true }))}
+    ${cjSeccion('pantalla', 'La pantalla', 'Pulsa <b>Nueva partida</b>, elige rival y color, y el juego reparte por ti: 5 cartas en la mano y 8 en la pila de robo. Cada esgrimista empieza con <b>10 puntos de vida</b>.', pantalla)}
+    ${cjSeccion('carta', 'La carta', 'Los dos mazos tienen las mismas 13 cartas. Para ver una carta en grande durante la partida, mantenla pulsada en el móvil o haz clic derecho en el ordenador.', cjMarco(null, carta, { ancho: true }))}
     ${cjSeccion('simbolos', 'Los símbolos', '', simbolos)}
-    ${cjSeccion('preparacion', 'Preparación', '', preparacion)}
     ${cjSeccion('serie', 'La serie', 'Juega cartas de tu mano en fila. <b>Toda serie termina hiriendo</b>, en Estocada o Cuchillada.', serie)}
-    ${cjSeccion('turno', 'El turno', 'Ante una serie rival puedes <b>intervenir</b> una de sus cartas, <b>dar un paso atrás</b> o <b>no hacer nada</b> y recibir la herida. Manda la última serie.', turno)}
-    ${cjSeccion('herida', 'La herida', 'Cada carta vale 1, la Cuchillada 2 y el Compás 0. Después se recoge todo, cada uno baraja y roba 5, recuperáis el paso atrás y <b>declara quien hirió</b>.', herida)}
+    ${cjSeccion('turno', 'El turno', 'Ante una serie rival puedes <b>intervenir</b> una de sus cartas, <b>dar un paso atrás</b> o <b>no intervenir</b> y recibir la herida. Manda la última serie.', turno)}
+    ${cjSeccion('jugar', 'Jugar tus cartas', '', jugar)}
+    ${cjSeccion('herida', 'La herida', 'Cada carta vale 1, la Cuchillada 2 y el Compás 0. Después el juego reparte 5 cartas nuevas a cada uno, los dos recuperáis el paso atrás y <b>declara quien hirió</b>.', herida)}
     ${cjSeccion('sujeta', 'Espada sujeta', 'La carta que va justo detrás de una con el sello de las roperas cruzadas lleva un candado. Detrás de un Librar las espadas van libres.', sujeta)}
     ${cjSeccion('doble', 'Doble tocado', '', doble)}
     ${cjSeccion('reparo', 'Reparo', '', reparo)}
-    ${cjSeccion('paso', 'Paso atrás', 'Se juega solo y <b>una vez entre heridas</b>. Si nadie lo corta, se recoge todo sin herida y declara el otro.', paso)}
+    ${cjSeccion('paso', 'Paso atrás', 'Se juega solo y <b>una vez entre heridas</b>. Si nadie lo corta, no hay herida, el juego reparte cartas nuevas y declara el otro.', paso)}
     ${cjSeccion('tajo', 'Estocada contra tajo', '', tajo)}
     ${cjSeccion('ejemplo', 'Ejemplo', '', ejemplo)}
     ${cjSeccion('fin', 'Fin', 'Quien llega a 0 de vida pierde.', fin)}`;
