@@ -218,6 +218,8 @@ body.arrastrando .hueco-serie.unico { width: auto; }
 .carta .ilus { flex: 1; border: 1px solid #111; overflow: hidden; display: flex; }
 .carta .ilus img { width: 100%; height: 100%; object-fit: cover; }
 .carta .pie { min-height: 11%; display: flex; align-items: center; justify-content: center; }
+.carta .estrellas { align-items: center; }
+.carta .limite { margin-right: calc(var(--w) * 0.04); font-size: 1.3em; line-height: 1; }
 .carta .mod { font-weight: 800; font-size: 1.05em; }
 .insignia { position: absolute; top: -8px; right: -6px; background: var(--sangre); color: #f7ecd6; font-size: 11px; font-weight: 700; border-radius: 2px; padding: 1px 7px; box-shadow: 0 1px 3px #0006; pointer-events: none; font-family: var(--serif); }
 
@@ -1794,13 +1796,14 @@ function htmlCarta(def, opciones = {}) {
   const estrellas = def.estrellas.map(svgEstrella).join('');
   let pie = '';
   if (def.modificador) pie = `<span class="mod">${def.modificador}</span>`;
-  if (def.serieRivalMenorQue !== undefined) pie = `<span class="mod">&lt;${def.serieRivalMenorQue}</span>`;
   if (def.sujetaEspada) pie = htmlSelloSujeta(espejo);
+  // Límite del Reparo: va arriba, junto a la estrella con la que responde.
+  const limite = def.serieRivalMenorQue !== undefined ? `<span class="mod limite">&lt;${def.serieRivalMenorQue}</span>` : '';
   const esCompas = !!def.pasoAtras;
   const colCirculos = `<div class="col circulos">${circulos}</div>`;
   const colFlechas = `<div class="col flechas">${flechas}</div>`;
   return `<div class="carta ${oscura ? 'oscura' : 'clara'} ${clases.join(' ')}" data-inst="${inst}" data-carta="${def.id}" title="${titulo.replace(/"/g, '&quot;')}" tabindex="${inst ? 0 : -1}"${arrastrable ? ' draggable="true"' : ''}>
-    <div class="cab"><span class="nombre">${esCompas ? '' : def.nombre}</span><span class="estrellas${esCompas ? ' muchas' : ''}">${estrellas}</span></div>
+    <div class="cab"><span class="nombre">${esCompas ? '' : def.nombre}</span><span class="estrellas${esCompas ? ' muchas' : ''}">${limite}${estrellas}</span></div>
     <div class="cuerpo">
       ${espejo ? colFlechas : colCirculos}
       <div class="ilus" style="background:${COLOR_HEX[def.color]}"><img src="${rutaImagen(def.imagen)}" alt="" draggable="false"></div>
@@ -2060,7 +2063,7 @@ function htmlComoJugar(cfg) {
   const m = (negras, blancas) => cjMesa(cfg, negras, blancas);
 
   const carta = `<div class="cj-anatomia"><div class="cj-grande">${c('suspension')}<span class="cj-n" style="left:14%;top:6%">1</span><span class="cj-n" style="left:86%;top:6%">2</span><span class="cj-n" style="left:9%;top:36%">3</span><span class="cj-n" style="left:50%;top:52%">4</span><span class="cj-n" style="left:91%;top:36%">5</span><span class="cj-n" style="left:50%;top:94%">6</span></div>
-    <ol class="cj-leyenda"><li><b>Nombre</b></li><li><b>Estrellas:</b> a qué colores rivales respondes</li><li><b>Círculos:</b> qué colores tuyos pueden ir antes</li><li><b>Color</b> de la carta</li><li><b>Flechas:</b> qué colores tuyos pueden ir después</li><li><b>Sello o valor:</b> espada sujeta, +2 o &lt;4</li></ol></div>`;
+    <ol class="cj-leyenda"><li><b>Nombre</b></li><li><b>Estrellas:</b> a qué colores rivales respondes. El Reparo lleva aquí su límite, &lt;4</li><li><b>Círculos:</b> qué colores tuyos pueden ir antes</li><li><b>Color</b> de la carta</li><li><b>Flechas:</b> qué colores tuyos pueden ir después</li><li><b>Sello o valor:</b> espada sujeta o +2</li></ol></div>`;
 
   const simbolos = [
     cjMarco(true, s([{ id: 'atajo', foco: [cjFlecha('amarillo')] }, { id: 'suspension', foco: [cjCirculo('azul')] }]), { cols: 2, pie: 'La flecha pide su color y el círculo acepta el de antes' }),
