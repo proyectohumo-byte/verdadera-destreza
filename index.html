@@ -2442,11 +2442,10 @@ function avisoAtacaDeNuevo(estado, muerto) {
   const atacante = muerto.sigue;
   const rival = N[RIVAL[atacante]];
   const carta = defDe(ui.config, muerto.carta).nombre;
-  const final = 'No se recoge ninguna carta. El ataque tiene que terminar en Estocada o Cuchillada.';
-  if (ui.modo !== 'ordenador') return { estado, titulo: `${N[atacante]} ataca de nuevo`, texto: `${rival} no puede contestar el ${carta} de ${N[atacante]} ni atacar. ${final}` };
+  if (ui.modo !== 'ordenador') return { estado, titulo: `${N[atacante]} ataca de nuevo`, texto: `${rival} no puede contestar el ${carta} de ${N[atacante]} ni atacar. No se recoge ninguna carta. El turno de ataque vuelve a ser de ${N[atacante]}.` };
   return esOrdenador(atacante)
     ? { estado, titulo: `${N[atacante]} ataca de nuevo`, texto: `No puedes contestar el ${carta} de ${N[atacante]} ni atacar, así que vuelve a atacar ${N[atacante]}. No se recoge ninguna carta.` }
-    : { estado, titulo: '¡Te toca atacar de nuevo!', texto: `${rival} no puede contestar tu ${carta} ni atacar. No se recoge ninguna carta. Te vuelve el turno de atacar. El ataque tiene que terminar en Estocada o Cuchillada.` };
+    : { estado, titulo: '¡Te toca atacar de nuevo!', texto: `${rival} no puede contestar tu ${carta} ni atacar. No se recoge ninguna carta. El turno de ataque vuelve a ser tuyo.` };
 }
 
 function jugar(jugada) {
