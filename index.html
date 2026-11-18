@@ -2446,7 +2446,7 @@ function avisoAtacaDeNuevo(estado, muerto) {
   if (ui.modo !== 'ordenador') return { estado, titulo: `${N[atacante]} ataca de nuevo`, texto: `${rival} no puede contestar el ${carta} de ${N[atacante]} ni atacar. ${final}` };
   return esOrdenador(atacante)
     ? { estado, titulo: `${N[atacante]} ataca de nuevo`, texto: `No puedes contestar el ${carta} de ${N[atacante]} ni atacar, así que vuelve a atacar ${N[atacante]}. No se recoge ninguna carta.` }
-    : { estado, titulo: '¡Te toca atacar de nuevo!', texto: `${rival} no puede contestar tu ${carta} ni atacar. ${final}` };
+    : { estado, titulo: '¡Te toca atacar de nuevo!', texto: `${rival} no puede contestar tu ${carta} ni atacar. No se recoge ninguna carta. Te vuelve el turno de atacar. El ataque tiene que terminar en Estocada o Cuchillada.` };
 }
 
 function jugar(jugada) {
