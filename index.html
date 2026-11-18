@@ -1355,7 +1355,7 @@ function puntoMuerto(estado) {
 /**
  * Golpe doble: la primera carta de la respuesta y la carta intervenida se alcanzan a la vez
  * (Estocada contra Estocada: "golpeDobleContra" en cartas.json). Los dos pierden vida; si llegan
- * a 0 a la vez, empate. Si no, se reinicia como tras una herida y declara quien lanzó el primer
+ * a 0 a la vez, muerte súbita: los dos vuelven a 1 punto y se sigue. Se reinicia como tras una herida y declara quien lanzó el primer
  * golpe (tiene la iniciativa).
  */
 function golpeDoble(e, quienResponde, carta) {
@@ -1363,18 +1363,19 @@ function golpeDoble(e, quienResponde, carta) {
   const dano = defDe(e.config, carta).danoGolpeDoble ?? 1;
   for (const j of ['blanco', 'negro']) e.vida[j] = Math.max(0, e.vida[j] - dano);
   e.contadores.golpesDobles = (e.contadores.golpesDobles ?? 0) + 1;
+  const muerteSubita = e.vida.blanco <= 0 && e.vida.negro <= 0;
+  if (muerteSubita) e.vida = { blanco: 1, negro: 1 };
   // La mesa tal como quedó (con la Estocada de la respuesta) para poder mostrarla antes de recoger.
   const mesa = JSON.parse(JSON.stringify(e.mesa));
   const mano = JSON.parse(JSON.stringify(e.mano));
-  e.eventos.push({ tipo: 'golpeDoble', jugador: quienResponde, primero, dano, vida: { ...e.vida }, mesa, mano });
-  const muertos = ['blanco', 'negro'].filter((j) => e.vida[j] <= 0);
-  if (muertos.length) {
+  e.eventos.push({ tipo: 'golpeDoble', jugador: quienResponde, primero, dano, muerteSubita, vida: { ...e.vida }, mesa, mano });
+  const muerto = ['blanco', 'negro'].find((j) => e.vida[j] <= 0);
+  if (muerto) {
     e.fase = 'fin';
-    e.ganador = muertos.length === 2 ? null : RIVAL[muertos[0]];
-    e.empate = muertos.length === 2;
+    e.ganador = RIVAL[muerto];
     e.turno = null;
     e.serieDeclarada = null;
-    e.eventos.push({ tipo: 'fin', ganador: e.ganador, empate: e.empate });
+    e.eventos.push({ tipo: 'fin', ganador: e.ganador });
     return e;
   }
   e.pasoAtrasDisponible = { blanco: true, negro: true };
@@ -1973,7 +1974,7 @@ function anotarPaso(sec, ev, nombreCarta) {
       sec.push({ resultado: `${NJ[ev.atacante]} hiere a ${NJ[ev.herido]}: ${pts(ev.dano)} (vida ${ev.vida})`, tipo: 'herida', atacante: ev.atacante, herido: ev.herido, dano: ev.dano, vida: ev.vida });
       break;
     case 'golpeDoble':
-      sec.push({ resultado: `Doble tocado: los dos pierden ${pts(ev.dano)}`, tipo: 'doble', dano: ev.dano, vida: { ...ev.vida } });
+      sec.push({ resultado: `Doble tocado: los dos pierden ${pts(ev.dano)}${ev.muerteSubita ? '. Muerte súbita: los dos vuelven a 1' : ''}`, tipo: 'doble', dano: ev.dano, vida: { ...ev.vida } });
       break;
     case 'pasoAtrasCumplido':
       sec.push({ resultado: `Paso atrás de ${NJ[ev.jugador]} cumplido, sin herida`, tipo: 'pasoAtras', jugador: ev.jugador });
@@ -2130,7 +2131,7 @@ function htmlComoJugar(cfg) {
 
   const fin = [
     cjMarco(null, `${cjVida(0, 'Negro')}${cjVida(3, 'Blanco')}`, { pie: 'Gana Blanco' }),
-    cjMarco(null, `${cjVida(0, 'Negro')}${cjVida(0, 'Blanco')}`, { pie: 'Empate' }),
+    cjMarco(null, `${cjVida(1, 'Negro')}${cjVida(1, 'Blanco')}`, { pie: 'Muerte súbita: si un doble tocado os deja a 0, los dos volvéis a 1' }),
   ].join('');
 
   return `<nav class="cj-indice" aria-label="Apartados">${CJ_INDICE.map(([id, t]) => `<a href="#cj-${id}">${t}</a>`).join('')}</nav>
@@ -2668,10 +2669,12 @@ function jugar(jugada) {
   const doble = despues.eventos.find((ev) => ev.tipo === 'golpeDoble');
   const muerto = despues.eventos.find((ev) => ev.tipo === 'puntoMuerto');
   if (doble) {
-    const texto = `Estocada contra Estocada: los dos se alcanzan a la vez y pierden ${puntos(doble.dano)}. Vida de Blanco: ${doble.vida.blanco}; de Negro: ${doble.vida.negro}.`;
+    const texto = doble.muerteSubita
+      ? 'Estocada contra Estocada: los dos llegan a 0 a la vez. Los dos vuelven a 1 punto y se sigue hasta que uno pierda.'
+      : `Estocada contra Estocada: los dos se alcanzan a la vez y pierden ${puntos(doble.dano)}. Vida de Blanco: ${doble.vida.blanco}; de Negro: ${doble.vida.negro}.`;
     ui.pausa = despues.fase === 'fin'
-      ? { estado: antes, titulo: despues.empate ? '¡Empate!' : `¡Gana ${N[despues.ganador]}!`, texto: `${texto} ${despues.empate ? 'Los dos se quedan a 0 a la vez.' : ''}`, fin: true }
-      : { estado: { ...antes, mesa: doble.mesa, mano: doble.mano, vida: doble.vida }, titulo: 'Doble tocado', texto: `${texto} ${textoReparto()} Ambos recuperan el paso atrás. Declara ${N[doble.primero]}, que tiraba la primera estocada.` };
+      ? { estado: antes, titulo: `¡Gana ${N[despues.ganador]}!`, texto, fin: true }
+      : { estado: { ...antes, mesa: doble.mesa, mano: doble.mano, vida: doble.vida }, titulo: doble.muerteSubita ? '¡Muerte súbita!' : 'Doble tocado', texto: `${texto} ${textoReparto()} Ambos recuperan el paso atrás. Declara ${N[doble.primero]}, que tiraba la primera estocada.` };
   } else if (muerto) {
     const parada = `Nadie contesta el ${defDe(ui.config, muerto.carta).nombre} de ${N[muerto.jugador]}: la parada no hiere y no hay herida.`;
     ui.pausa = muerto.sigue === muerto.jugador
@@ -2859,7 +2862,7 @@ function registrar(ev, antes) {
     case 'costeApertura': t = `Abrir con ${defDe(ui.config, ev.carta).nombre} le cuesta a ${N[ev.jugador]} ${puntos(ev.coste)} de vida. Vida: ${ev.vida}.`; break;
     case 'pasoAtrasCumplido': t = `El paso atrás de ${N[ev.jugador]} se cumple. Declara ${N[RIVAL[ev.jugador]]}.`; break;
     case 'fin': t = ev.empate ? 'Empate: los dos se quedan a 0 a la vez.' : `Gana ${N[ev.ganador]}.`; break;
-    case 'golpeDoble': t = `Doble tocado: Estocada contra Estocada, los dos pierden ${puntos(ev.dano)}. Declara ${N[ev.primero]}.`; break;
+    case 'golpeDoble': t = `Doble tocado: Estocada contra Estocada, los dos pierden ${puntos(ev.dano)}.${ev.muerteSubita ? ' Muerte súbita: los dos vuelven a 1 punto.' : ''} Declara ${N[ev.primero]}.`; break;
     case 'puntoMuerto': t = ev.barajaSolo ? `${N[ev.barajaSolo]} se queda sin pila: recoge, baraja y sigue contestando la parada de ${N[ev.jugador]}.` : `Punto muerto: nadie contesta la parada de ${N[ev.jugador]}. ${ev.sigue === ev.jugador ? `${N[RIVAL[ev.jugador]]} no puede atacar: ${N[ev.jugador]} ataca de nuevo.` : ev.sigue ? `El combate sigue; ataca ${N[ev.sigue]}.` : `Se reparte de nuevo; declara ${N[RIVAL[ev.jugador]]}.`}`; break;
     default: return;
   }
