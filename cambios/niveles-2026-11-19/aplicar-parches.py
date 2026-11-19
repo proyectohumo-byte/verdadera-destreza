@@ -111,5 +111,22 @@ v8 = "  $('#reglas-contenido').innerHTML = htmlComoJugar(ui.config);\n  render()
 assert s.count(v8) == 1
 s = s.replace(v8, "  $('#reglas-contenido').innerHTML = htmlComoJugar(ui.config);\n  if (retomarEnCurso()) return;\n  render();\n  abrirNuevaPartida();")
 
+v9 = '<th>#</th><th>Esgrimista</th><th title="Partidas">P</th><th title="Ganadas">G</th><th title="Empates">E</th><th title="Perdidas">Pe</th><th title="Porcentaje de victorias">%</th><th title="Puntos de herida dados / recibidos">Tocados</th>'
+assert s.count(v9) == 1
+n9 = '<th data-ayuda="Posición en la clasificación" tabindex="0">#</th><th>Esgrimista</th><th data-ayuda="Partidas jugadas" tabindex="0">P</th><th data-ayuda="Partidas ganadas" tabindex="0">G</th><th data-ayuda="Partidas empatadas" tabindex="0">E</th><th data-ayuda="Partidas perdidas" tabindex="0">Pe</th><th data-ayuda="Porcentaje de partidas ganadas" tabindex="0">%</th><th data-ayuda="Puntos de herida dados / recibidos" tabindex="0">Tocados</th>'
+s = s.replace(v9, n9)
+v10 = ".tabla-ranking tbody tr:first-child td { font-weight: bold; }"
+assert s.count(v10) == 1
+n10 = v10 + """
+.tabla-ranking th[data-ayuda] { position: relative; cursor: help; text-decoration: underline dotted; text-underline-offset: 3px; }
+.tabla-ranking th[data-ayuda]:hover::after, .tabla-ranking th[data-ayuda]:focus::after {
+  content: attr(data-ayuda); position: absolute; top: 100%; left: 50%; transform: translateX(-50%); z-index: 5;
+  background: #2b1d12; color: #f7ecd6; font-size: 12px; font-weight: normal; line-height: 1.3; white-space: nowrap;
+  padding: 4px 8px; border-radius: 4px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4); text-decoration: none; pointer-events: none;
+}
+.tabla-ranking th[data-ayuda]:nth-last-child(-n+2):hover::after, .tabla-ranking th[data-ayuda]:nth-last-child(-n+2):focus::after { left: auto; right: 0; transform: none; }
+.tabla-ranking th[data-ayuda]:first-child:hover::after, .tabla-ranking th[data-ayuda]:first-child:focus::after { left: 0; transform: none; }"""
+s = s.replace(v10, n10)
+
 open(salida, 'w', encoding='utf-8').write(s)
 print('ok', len(s))

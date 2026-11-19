@@ -34,6 +34,8 @@ Todo es aditivo, salvo las líneas del punto 2. No se toca el motor (`engine/`) 
 
 5. **Partida en curso guardada** (`ui/app.js`): `guardarEnCurso()` se llama al principio de `render()` y guarda en `localStorage` (clave `destreza.enCurso`) el estado de la partida (sin `config`, que se reconstruye con `crearConfig(cartas, ajustes)`), los ajustes de la partida (`ui.ajustesPartida`, nuevo, se asigna en `empezarPartida`), el nivel del rival, los nombres, la pausa y el registro. `retomarEnCurso()` se llama en `iniciar()` justo antes del primer `render()`: si hay partida guardada, la restaura y no abre el diálogo de "Nueva partida"; si el guardado está corrupto, lo borra y arranca como siempre. Al terminar la partida (`fase === 'fin'`) se borra el guardado, porque ya queda en el Historial. Probado en navegador: recargar a mitad de partida conserva vida, mano, pista y registro. Pedido por el autor el 20/11/2026 para no perder la partida al recargar entre versiones.
 
+6. **Ayuda en las cabeceras del ranking** (`abrirRanking` en `ui/app.js` y el CSS de `.tabla-ranking`): las columnas P, G, E, Pe, %, Tocados y # llevan `data-ayuda` y `tabindex="0"`, y al pasar el ratón o pulsar se muestra un globo con la explicación (por ejemplo "Partidas ganadas"). Sustituye a los `title`, que no se ven en móvil. Pedido por el autor el 20/11/2026.
+
 El script `aplicar-parches.py` aplica exactamente esos cambios al `index.html` compilado, y se ha comprobado que reproduce el archivo de prueba byte a byte. Sirve como referencia de los textos exactos.
 
 ## Cómo funciona cada nivel
