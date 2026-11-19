@@ -38,6 +38,8 @@ Todo es aditivo, salvo las líneas del punto 2. No se toca el motor (`engine/`) 
 
 7. **Resultados contra cada rival** (`htmlEnfrentamientos`, nueva, llamada desde `abrirRanking` en `ui/app.js`): bloque desplegado por defecto, encima del ranking por esgrimista, con una fila por pareja "esgrimista contra rival" (por ejemplo "Néstor contra Ordenador (diestro)") y las columnas P, G, E, Pe, %, Tocados. Las filas del ordenador se omiten. Los rivales del ordenador salen ordenados por nivel (bisoño a maestro). Se apoya en que el nombre del rival en el Historial es `Ordenador (nivel)`. Ambos bloques de ranking van **encima** de la lista de partidas (orden en `abrirRanking`: `htmlEnfrentamientos(todas) + ranking + filtros + partidas`), para no tener que bajar por un historial largo. Pedido por el autor el 20/11/2026.
 
+8. **Cruz de cierre en las ventanas** (`iniciar` en `ui/app.js` y CSS `.cerrar-x`): al arrancar se añade un botón "×" arriba a la derecha de cada `<dialog>` (Nueva partida, Historial, Cómo jugar), que llama a `d.close()`. Queda fija arriba al desplazar el contenido. Pedido por el autor el 20/11/2026.
+
 El script `aplicar-parches.py` aplica exactamente esos cambios al `index.html` compilado, y se ha comprobado que reproduce el archivo de prueba byte a byte. Sirve como referencia de los textos exactos.
 
 ## Cómo funciona cada nivel

@@ -171,5 +171,25 @@ v12 = "$('#ranking-contenido').innerHTML = filtros + partidas + ranking;"
 assert s.count(v12) == 1
 s = s.replace(v12, "$('#ranking-contenido').innerHTML = htmlEnfrentamientos(todas) + ranking + filtros + partidas;")
 
+v13 = "dialog::backdrop { background: #1f1711b3; }"
+assert s.count(v13) == 1
+s = s.replace(v13, v13 + """
+.cerrar-x { position: sticky; top: 0; float: right; z-index: 4; width: 34px; height: 34px; margin: -10px -14px 0 8px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 26px; line-height: 1; color: var(--tinta); background: transparent; border: 1px solid transparent; border-radius: 50%; cursor: pointer; }
+.cerrar-x:hover, .cerrar-x:focus-visible { background: var(--papel-claro); border-color: var(--tinta-suave); color: var(--sangre); }""")
+v14 = "  enlazarEventos();\n  enlazarArrastre();"
+assert s.count(v14) == 1
+s = s.replace(v14, """  // Una cruz arriba a la derecha en cada ventana emergente (Nueva partida, Historial, Cómo jugar).
+  for (const d of document.querySelectorAll('dialog')) {
+    const x = document.createElement('button');
+    x.type = 'button';
+    x.className = 'cerrar-x';
+    x.textContent = '×';
+    x.title = 'Cerrar';
+    x.setAttribute('aria-label', 'Cerrar');
+    x.addEventListener('click', () => d.close());
+    d.prepend(x);
+  }
+""" + v14)
+
 open(salida, 'w', encoding='utf-8').write(s)
 print('ok', len(s))
