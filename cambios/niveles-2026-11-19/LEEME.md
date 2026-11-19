@@ -36,6 +36,8 @@ Todo es aditivo, salvo las líneas del punto 2. No se toca el motor (`engine/`) 
 
 6. **Ayuda en las cabeceras del ranking** (`abrirRanking` en `ui/app.js` y el CSS de `.tabla-ranking`): las columnas P, G, E, Pe, %, Tocados y # llevan `data-ayuda` y `tabindex="0"`, y al pasar el ratón o pulsar se muestra un globo con la explicación (por ejemplo "Partidas ganadas"). Sustituye a los `title`, que no se ven en móvil. Pedido por el autor el 20/11/2026.
 
+7. **Resultados contra cada rival** (`htmlEnfrentamientos`, nueva, llamada desde `abrirRanking` en `ui/app.js`): bloque desplegado por defecto, encima del ranking por esgrimista, con una fila por pareja "esgrimista contra rival" (por ejemplo "Néstor contra Ordenador (diestro)") y las columnas P, G, E, Pe, %, Tocados. Las filas del ordenador se omiten. Los rivales del ordenador salen ordenados por nivel (bisoño a maestro). Se apoya en que el nombre del rival en el Historial es `Ordenador (nivel)`. Pedido por el autor el 20/11/2026.
+
 El script `aplicar-parches.py` aplica exactamente esos cambios al `index.html` compilado, y se ha comprobado que reproduce el archivo de prueba byte a byte. Sirve como referencia de los textos exactos.
 
 ## Cómo funciona cada nivel

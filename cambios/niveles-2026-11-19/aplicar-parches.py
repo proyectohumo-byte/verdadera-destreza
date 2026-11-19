@@ -128,5 +128,48 @@ n10 = v10 + """
 .tabla-ranking th[data-ayuda]:first-child:hover::after, .tabla-ranking th[data-ayuda]:first-child:focus::after { left: 0; transform: none; }"""
 s = s.replace(v10, n10)
 
+v11 = "function abrirRanking() {\n  const todas = leerPartidas();"
+assert s.count(v11) == 1
+n11 = r'''/** Resultados de cada esgrimista contra cada rival concreto (por ejemplo, "Ordenador (diestro)"). */
+function htmlEnfrentamientos(partidas) {
+  const orden = ['bisoño', 'discípulo', 'diestro', 'preboste', 'maestro'];
+  const peso = (nombre) => {
+    const m = /^Ordenador \((.+)\)$/.exec(nombre);
+    return m ? orden.indexOf(m[1].toLowerCase()) : -1;
+  };
+  const filas = new Map();
+  for (const p of partidas) {
+    for (const lado of ['blanco', 'negro']) {
+      const otro = lado === 'blanco' ? 'negro' : 'blanco';
+      if (/^Ordenador/.test(p[lado])) continue; // el ordenador no necesita su propia fila
+      const k = `${p[lado]}\u0000${p[otro]}`;
+      if (!filas.has(k)) filas.set(k, { yo: p[lado], rival: p[otro], jugadas: 0, ganadas: 0, empates: 0, perdidas: 0, dados: 0, recibidos: 0 });
+      const f = filas.get(k);
+      f.jugadas++;
+      if (p.ganador === lado) f.ganadas++;
+      else if (p.ganador === null) f.empates++;
+      else f.perdidas++;
+      if (p.vida && p.vidaInicial) {
+        f.dados += p.vidaInicial - p.vida[otro];
+        f.recibidos += p.vidaInicial - p.vida[lado];
+      }
+    }
+  }
+  const lista = [...filas.values()].sort((a, b) => a.yo.localeCompare(b.yo, 'es') || peso(a.rival) - peso(b.rival) || a.rival.localeCompare(b.rival, 'es'));
+  if (!lista.length) return '';
+  const cab = (t, ayuda) => `<th data-ayuda="${ayuda}" tabindex="0">${t}</th>`;
+  const cuerpo = lista
+    .map((f) => `<tr><td>${escapar(f.yo)} contra ${escapar(f.rival)}</td><td>${f.jugadas}</td><td>${f.ganadas}</td><td>${f.empates}</td><td>${f.perdidas}</td><td>${Math.round((100 * f.ganadas) / f.jugadas)}</td><td>${f.dados} / ${f.recibidos}</td></tr>`)
+    .join('');
+  return `<details class="bloque-ranking" open><summary>Resultados contra cada rival</summary><table class="tabla-ranking"><thead><tr><th>Enfrentamiento</th>${cab('P', 'Partidas jugadas')}${cab('G', 'Partidas ganadas')}${cab('E', 'Partidas empatadas')}${cab('Pe', 'Partidas perdidas')}${cab('%', 'Porcentaje de partidas ganadas')}${cab('Tocados', 'Puntos de herida dados / recibidos')}</tr></thead><tbody>${cuerpo}</tbody></table></details>`;
+}
+
+function abrirRanking() {
+  const todas = leerPartidas();'''
+s = s.replace(v11, n11)
+v12 = "$('#ranking-contenido').innerHTML = filtros + partidas + ranking;"
+assert s.count(v12) == 1
+s = s.replace(v12, "$('#ranking-contenido').innerHTML = filtros + partidas + htmlEnfrentamientos(todas) + ranking;")
+
 open(salida, 'w', encoding='utf-8').write(s)
 print('ok', len(s))
