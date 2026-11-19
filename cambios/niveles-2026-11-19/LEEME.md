@@ -30,6 +30,8 @@ Todo es aditivo, salvo las líneas del punto 2. No se toca el motor (`engine/`) 
    - El nombre del rival en el historial: `` `Ordenador (${nivelPorId(f.get('nivel')).nombre.toLowerCase()})` ``
    - En `iniciar`: `ui.rival = crearRivalNivel(NIVEL_POR_DEFECTO);`
    - `nivelPorId` traduce los valores antiguos (`azar` pasa a Bisoño y `reglas` a Maestro) para no romper nada guardado.
+4. **Suma sobre la serie declarada** (en el renderizado de la pista, `ui/vista.js`): la etiqueta "suma N" de la primera carta de la serie declarada muestra ahora el daño pendiente completo (`danoPendiente(e).dano`: suma de la serie, +1 si contesta una carta del rival, y la herida extra por apertura cercana), no solo `.suma`. El detalle sale en el `title`. Pedido por el autor el 20/11/2026.
+
 El script `aplicar-parches.py` aplica exactamente esos cambios al `index.html` compilado, y se ha comprobado que reproduce el archivo de prueba byte a byte. Sirve como referencia de los textos exactos.
 
 ## Cómo funciona cada nivel
