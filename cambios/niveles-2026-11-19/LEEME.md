@@ -99,3 +99,14 @@ Prueba de humo en un navegador sin cabeza: se muestran los cinco niveles, el ord
 - Falta el registro de victorias del jugador por nivel en el Historial. Es una mejora independiente y sirve para ajustar los parámetros con partidas reales.
 - Los nombres de nivel (Bisoño, Discípulo, Diestro, Preboste, Maestro) son los elegidos por el autor. Los textos explicativos de cada uno están en `NIVELES[].frase` y en el selector.
 - La regla del candado, las 13 cartas y el resto de diferencias con el documento de reglas original (`instrucciones-claude-code.md`) están pendientes de confirmar por el autor.
+
+## Para una segunda versión (decidido por el autor el 19/11/2026)
+
+Para la primera versión se deja el Maestro como está: igual de fuerte que la IA antigua (48 %), sin la búsqueda pesada.
+
+Si más adelante hace falta un Maestro claramente superior (por ejemplo, ya con el juego muy avanzado y pensando en publicar una app), la idea es que **el Maestro juegue partidas enteras por su lado**: en cada decisión, sortear varias manos posibles del rival coherentes con lo que ha visto, jugar cada candidata hasta el final contra un rival sencillo y elegir la jugada con más victorias. Advertencias:
+- Es mucho más lento; habría que limitar el número de manos y partidas por decisión, sobre todo en móvil.
+- Se acerca a "saberlo todo", que el autor no quería para el Maestro; conviene mantener memoria imperfecta al sortear las manos.
+- Se medirá con `simulacion/torneo-escalera-y-vieja.js` y debería superar el 60 % contra la IA antigua sin romper la escalera.
+- Los parámetros `cargar` y `cargarPen` quedan en 0; se probaron y no sirven (ver arriba).
+
