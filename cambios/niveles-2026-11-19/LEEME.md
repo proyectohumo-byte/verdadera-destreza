@@ -32,6 +32,8 @@ Todo es aditivo, salvo las líneas del punto 2. No se toca el motor (`engine/`) 
    - `nivelPorId` traduce los valores antiguos (`azar` pasa a Bisoño y `reglas` a Maestro) para no romper nada guardado.
 4. **Suma sobre la serie declarada** (en el renderizado de la pista, `ui/vista.js`): la etiqueta "suma N" de la primera carta de la serie declarada muestra ahora el daño pendiente completo (`danoPendiente(e).dano`: suma de la serie, +1 si contesta una carta del rival, y la herida extra por apertura cercana), no solo `.suma`. El detalle sale en el `title`. Pedido por el autor el 20/11/2026.
 
+5. **Partida en curso guardada** (`ui/app.js`): `guardarEnCurso()` se llama al principio de `render()` y guarda en `localStorage` (clave `destreza.enCurso`) el estado de la partida (sin `config`, que se reconstruye con `crearConfig(cartas, ajustes)`), los ajustes de la partida (`ui.ajustesPartida`, nuevo, se asigna en `empezarPartida`), el nivel del rival, los nombres, la pausa y el registro. `retomarEnCurso()` se llama en `iniciar()` justo antes del primer `render()`: si hay partida guardada, la restaura y no abre el diálogo de "Nueva partida"; si el guardado está corrupto, lo borra y arranca como siempre. Al terminar la partida (`fase === 'fin'`) se borra el guardado, porque ya queda en el Historial. Probado en navegador: recargar a mitad de partida conserva vida, mano, pista y registro. Pedido por el autor el 20/11/2026 para no perder la partida al recargar entre versiones.
+
 El script `aplicar-parches.py` aplica exactamente esos cambios al `index.html` compilado, y se ha comprobado que reproduce el archivo de prueba byte a byte. Sirve como referencia de los textos exactos.
 
 ## Cómo funciona cada nivel
