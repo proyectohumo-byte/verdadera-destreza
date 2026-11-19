@@ -169,7 +169,7 @@ function abrirRanking() {
 s = s.replace(v11, n11)
 v12 = "$('#ranking-contenido').innerHTML = filtros + partidas + ranking;"
 assert s.count(v12) == 1
-s = s.replace(v12, "$('#ranking-contenido').innerHTML = filtros + partidas + htmlEnfrentamientos(todas) + ranking;")
+s = s.replace(v12, "$('#ranking-contenido').innerHTML = htmlEnfrentamientos(todas) + ranking + filtros + partidas;")
 
 open(salida, 'w', encoding='utf-8').write(s)
 print('ok', len(s))
