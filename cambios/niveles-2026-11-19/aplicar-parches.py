@@ -10,7 +10,7 @@ s = s.replace(marca, niv + marca)
 viejo = '''        <label><input type="radio" name="nivel" value="reglas" checked> Normal: elige la mejor jugada según reglas fijas</label>
         <label><input type="radio" name="nivel" value="azar"> Fácil: juega cualquier jugada legal al azar</label>'''
 assert s.count(viejo) == 1
-nuevo = '''        <label><input type="radio" name="nivel" value="bisono"> <b>Bisoño</b>: juega cualquier jugada legal al azar</label>
+nuevo = '''        <label><input type="radio" name="nivel" value="bisono"> <b>Bisoño</b>: apenas sabe jugar; se despista mucho</label>
         <label><input type="radio" name="nivel" value="discipulo"> <b>Discípulo</b>: piensa en el daño inmediato y no recuerda lo que has jugado</label>
         <label><input type="radio" name="nivel" value="diestro" checked> <b>Diestro</b>: recuerda tus últimas jugadas, aunque a veces falla</label>
         <label><input type="radio" name="nivel" value="preboste"> <b>Preboste</b>: ayudante del maestro; lleva la cuenta de las cartas con cierta fiabilidad</label>
@@ -25,9 +25,5 @@ s = s.replace(v2, "`Ordenador (${nivelPorId(f.get('nivel')).nombre.toLowerCase()
 v3 = "  ui.rival = crearRivalReglas();\n  $('#defs')"
 assert s.count(v3) == 1
 s = s.replace(v3, "  ui.rival = crearRivalNivel(NIVEL_POR_DEFECTO);\n  $('#defs')")
-v4 = "<div class=\"paso ${e.pasoAtrasDisponible[j] ? 'si' : 'no'}\" title=\"${e.pasoAtrasDisponible[j] ? 'Paso atrás disponible' : 'Paso atrás usado: vuelve tras una herida'}\">Paso atrás: ${e.pasoAtrasDisponible[j] ? 'disponible' : 'usado'}</div>"
-assert s.count(v4) == 1
-n4 = "<div class=\"paso ${e.pasoAtrasDisponible[j] ? 'si' : 'no'}\" title=\"${e.pasoAtrasDisponible[j] ? 'Paso atrás disponible' : 'Paso atrás usado: vuelve tras una herida'}\">Paso atrás: ${e.pasoAtrasDisponible[j] ? 'disponible' : 'usado'}${e.pasoAtrasDisponible[j] && !esOrdenador(j) && e.fase !== 'fin' && !e.mano[j].some((i) => ui.config.cartas[ui.config.cartaDe[i]]?.pasoAtras) ? ' (el Compás no está en tu mano)' : ''}</div>"
-s = s.replace(v4, n4)
 open(salida, 'w', encoding='utf-8').write(s)
 print('ok', len(s))

@@ -9,7 +9,8 @@
 // Los parámetros están todos aquí, en NIVELES, para ajustarlos sin tocar nada más.
 
 const NIVELES = [
-  { id: 'bisono', nombre: 'Bisoño', frase: 'Juega cualquier jugada legal al azar.', azar: true },
+  { id: 'bisono', nombre: 'Bisoño', frase: 'Apenas sabe: mira pocas jugadas, se despista mucho y no recuerda nada.',
+    K: 2, ruido: 3, despiste: 0.7, memoria: 0, fidelidad: 1, sutilezas: { candado: false, reparo: false, pasoAtras: false } },
   { id: 'discipulo', nombre: 'Discípulo', frase: 'Piensa en el daño inmediato. No recuerda lo que has jugado.',
     K: 3, ruido: 2, despiste: 0.5, memoria: 0, fidelidad: 1, sutilezas: { candado: false, reparo: false, pasoAtras: false } },
   { id: 'diestro', nombre: 'Diestro', frase: 'Recuerda tus últimas jugadas, aunque a veces falla.',

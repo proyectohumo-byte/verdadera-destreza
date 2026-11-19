@@ -30,8 +30,6 @@ Todo es aditivo, salvo las líneas del punto 2. No se toca el motor (`engine/`) 
    - El nombre del rival en el historial: `` `Ordenador (${nivelPorId(f.get('nivel')).nombre.toLowerCase()})` ``
    - En `iniciar`: `ui.rival = crearRivalNivel(NIVEL_POR_DEFECTO);`
    - `nivelPorId` traduce los valores antiguos (`azar` pasa a Bisoño y `reglas` a Maestro) para no romper nada guardado.
-3. **Aviso del Compás** (en `htmlMarcador`): si el jugador humano tiene el paso atrás sin gastar pero la carta Compás no está en su mano, el marcador añade "(el Compás no está en tu mano)". No se muestra para el ordenador, para no revelar su mano.
-
 El script `aplicar-parches.py` aplica exactamente esos cambios al `index.html` compilado, y se ha comprobado que reproduce el archivo de prueba byte a byte. Sirve como referencia de los textos exactos.
 
 ## Cómo funciona cada nivel
@@ -50,7 +48,7 @@ Valores finales:
 
 | Nivel | K | ruido | despiste | memoria | fidelidad | candado | reparo | paso atrás |
 |---|---|---|---|---|---|---|---|---|
-| Bisoño | jugada legal al azar | | | | | | | |
+| Bisoño | 2 | 3 | 0,7 | 0 | 1 | no | no | no |
 | Discípulo | 3 | 2 | 0,5 | 0 | 1 | no | no | no |
 | Diestro | 6 | 1 | 0,25 | 2 | 0,75 | sí | no | no |
 | Preboste | 12 | 0,7 | 0,1 | 4 | 0,85 | sí | sí | no |
@@ -64,20 +62,22 @@ Mano de 5 cartas, 1000 partidas por pareja, victorias del nivel superior sobre e
 
 | Pareja | Victorias |
 |---|---|
-| Discípulo contra Bisoño | 72,8 % |
+| Discípulo contra Bisoño | 60,5 % |
 | Diestro contra Discípulo | 67,9 % |
 | Preboste contra Diestro | 58,8 % |
 | Maestro contra Preboste | 58,2 % |
+
+Diestro contra Discípulo, Preboste contra Diestro y Maestro contra Preboste se midieron antes de subir el nivel de Bisoño y no cambian (68, 59 y 58 %).
 
 El Maestro empata con el antiguo "Normal" (48 %), por lo que sigue siendo el nivel más difícil. Ningún nivel gana al anterior por menos de 55 %.
 
 Con "todas las cartas en la mano" las diferencias son mayores, entre 70 % y 76 %, porque las partidas son mucho más largas.
 
-Prueba de humo en un navegador sin cabeza: se muestran los cinco niveles, el ordenador mueve, sin errores en consola, y el aviso del Compás aparece solo para el jugador humano.
+Prueba de humo en un navegador sin cabeza: se muestran los cinco niveles, el ordenador mueve, sin errores en consola.
 
 ## Pendiente y decisiones abiertas
 
-- El primer escalón (Discípulo contra Bisoño) queda en 73 %, algo por encima del 70 % buscado. Bisoño es aleatorio puro y cualquier evaluación le gana con facilidad.
+- El primer escalón (Discípulo contra Bisoño) queda en 60 %, algo por debajo del 70 % buscado; es el precio de que Bisoño ya no sea azar puro. Bisoño ya no es azar puro: gana al azar puro un 59 %.
 - No se ha implementado "mira una jugada por delante" ni "gestiona reservas" para Preboste y Maestro. La evaluación existente ya penaliza las cartas que deja expuestas y las que gasta, que es lo que produce ese estilo prudente. Si se quiere un Maestro más fuerte, es el sitio para añadirlo.
 - Falta el registro de victorias del jugador por nivel en el Historial. Es una mejora independiente y sirve para ajustar los parámetros con partidas reales.
 - Los nombres de nivel (Bisoño, Discípulo, Diestro, Preboste, Maestro) son los elegidos por el autor. Los textos explicativos de cada uno están en `NIVELES[].frase` y en el selector.
