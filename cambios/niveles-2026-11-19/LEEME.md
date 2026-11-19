@@ -44,32 +44,49 @@ Ningún nivel ve la mano del rival. Cada nivel limita cinco parámetros, todos e
 | `memoria` y `fidelidad` | Solo recuerda las cartas que el rival jugó en las últimas `memoria` series, y cada una con probabilidad `fidelidad`. Las olvidadas cuentan como cartas que el rival aún puede tener, y con fidelidad baja a veces "pierde" una carta posible. |
 | `sutilezas` | Qué reglas anticipa del rival: `candado`, `reparo` (límite del Reparo menor que 4) y `pasoAtras` (corte del Compás con Estocada). Nunca juega ilegalmente. |
 
+Parámetros añadidos en la segunda ronda (todos opcionales, por nivel):
+
+| Parámetro | Qué hace |
+|---|---|
+| `miedo` | Bonus al Reparo, al Compás y a las series cortas. Solo Bisoño (3). |
+| `largo` | Bonus por cada carta de la serie: saber enlazar cadenas. Discípulo 0,3; Diestro 1,2; Preboste 0,5. |
+| `prevision` | Resta una fracción de la mejor respuesta que cree que tendría el rival. Solo Maestro (0,2). |
+| `cargar` / `cargarPen` | Probado y descartado (ver abajo). Valen 0 en todos los niveles. |
+
 Valores finales:
 
-| Nivel | K | ruido | despiste | memoria | fidelidad | candado | reparo | paso atrás |
-|---|---|---|---|---|---|---|---|---|
-| Bisoño | 2 | 3 | 0,7 | 0 | 1 | no | no | no |
-| Discípulo | 3 | 2 | 0,5 | 0 | 1 | no | no | no |
-| Diestro | 6 | 1 | 0,25 | 2 | 0,75 | sí | no | no |
-| Preboste | 12 | 0,7 | 0,1 | 4 | 0,85 | sí | sí | no |
-| Maestro | todas | 0,4 | 0,03 | todo el ciclo | 0,95 | sí | sí | sí |
+| Nivel | K | ruido | despiste | memoria | fidelidad | candado | reparo | paso atrás | extra |
+|---|---|---|---|---|---|---|---|---|---|
+| Bisoño | 2 | 3 | 0,7 | 0 | 1 | no | no | no | miedo 3 |
+| Discípulo | 3 | 2 | 0,5 | 0 | 1 | no | no | no | largo 0,3 |
+| Diestro | 6 | 1 | 0,25 | 2 | 0,75 | sí | no | no | largo 1,2 |
+| Preboste | 12 | 0,7 | 0,1 | 4 | 0,85 | sí | sí | no | largo 0,5 |
+| Maestro | todas | 0,4 | 0,03 | todo el ciclo | 0,95 | sí | sí | sí | previsión 0,2 |
 
 ## Cómo se comprobó
 
 Se cargó el motor sin navegador (`simulacion/harness.js`) y se enfrentaron los niveles entre sí con colores y primer turno alternados (`simulacion/torneo.js`, resultados completos en `simulacion/resultados.txt`).
 
-Mano de 5 cartas, 1000 partidas por pareja, victorias del nivel superior sobre el inmediatamente inferior:
+Mano de 5 cartas, 1500 partidas por pareja (`simulacion/resultados-v2.txt`, script `simulacion/torneo-escalera-y-vieja.js`). Victorias del nivel superior sobre el inferior:
 
 | Pareja | Victorias |
 |---|---|
-| Discípulo contra Bisoño | 60,5 % |
-| Diestro contra Discípulo | 67,9 % |
-| Preboste contra Diestro | 58,8 % |
-| Maestro contra Preboste | 58,2 % |
+| Discípulo contra Bisoño | 63,8 % |
+| Diestro contra Discípulo | 66,7 % |
+| Preboste contra Diestro | 60,1 % |
+| Maestro contra Preboste | 60,9 % |
 
-Diestro contra Discípulo, Preboste contra Diestro y Maestro contra Preboste se midieron antes de subir el nivel de Bisoño y no cambian (68, 59 y 58 %).
+Contra la IA antigua (reglas fijas, el "Normal" de antes) y contra el azar puro:
 
-El Maestro empata con el antiguo "Normal" (48 %), por lo que sigue siendo el nivel más difícil. Ningún nivel gana al anterior por menos de 55 %.
+| Nivel | Gana a la antigua | 
+|---|---|
+| Bisoño | 9 % (gana al azar puro un 62 %) |
+| Discípulo | 17 % |
+| Diestro | 27 % |
+| Preboste | 36 % |
+| Maestro | 48 % |
+
+**Resultado honesto sobre "que el Maestro le dé una paliza a la antigua": no se ha conseguido.** El Maestro queda en paridad (48 %, hasta 51 % en pruebas con memoria perfecta). Se probó: (1) cargar la serie solo si el rival no puede contestar (`cargar`): sin efecto, porque la evaluación ya multiplica el daño en ese caso, y penalizar las series largas cuando sí puede contestar hunde al Maestro (hasta 34 %); (2) reajustar los pesos uno a uno: la antigua ya está en un óptimo local; (3) mirar la respuesta del rival (`prevision`): da 1-3 puntos. La antigua usa la misma información y el mismo evaluador, y con manos de 5 cartas hay mucha suerte. Para ganarle con claridad hace falta búsqueda real (simular varias manos posibles y jugar partidas hasta el final), que es otro nivel de complejidad y acerca el Maestro a "saberlo todo", cosa que el autor no quería.
 
 Con "todas las cartas en la mano" las diferencias son mayores, entre 70 % y 76 %, porque las partidas son mucho más largas.
 
@@ -77,7 +94,7 @@ Prueba de humo en un navegador sin cabeza: se muestran los cinco niveles, el ord
 
 ## Pendiente y decisiones abiertas
 
-- El primer escalón (Discípulo contra Bisoño) queda en 60 %, algo por debajo del 70 % buscado; es el precio de que Bisoño ya no sea azar puro. Bisoño ya no es azar puro: gana al azar puro un 59 %.
+- El primer escalón (Discípulo contra Bisoño) queda en 64 %, bajo el 70 % buscado; es el precio de que Bisoño ya no sea azar puro.
 - No se ha implementado "mira una jugada por delante" ni "gestiona reservas" para Preboste y Maestro. La evaluación existente ya penaliza las cartas que deja expuestas y las que gasta, que es lo que produce ese estilo prudente. Si se quiere un Maestro más fuerte, es el sitio para añadirlo.
 - Falta el registro de victorias del jugador por nivel en el Historial. Es una mejora independiente y sirve para ajustar los parámetros con partidas reales.
 - Los nombres de nivel (Bisoño, Discípulo, Diestro, Preboste, Maestro) son los elegidos por el autor. Los textos explicativos de cada uno están en `NIVELES[].frase` y en el selector.

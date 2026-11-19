@@ -10,15 +10,15 @@
 
 const NIVELES = [
   { id: 'bisono', nombre: 'Bisoño', frase: 'Mozo recién llegado a la sala de armas: empuña la espada con respeto, pero poco sabe de ella.',
-    K: 2, ruido: 3, despiste: 0.7, memoria: 0, fidelidad: 1, sutilezas: { candado: false, reparo: false, pasoAtras: false } },
+    K: 2, ruido: 3, despiste: 0.7, miedo: 3, memoria: 0, fidelidad: 1, sutilezas: { candado: false, reparo: false, pasoAtras: false } },
   { id: 'discipulo', nombre: 'Discípulo', frase: 'Aprende el compás bajo la vista del maestro: atiende a la estocada que tiene delante, no a la que vendrá.',
-    K: 3, ruido: 2, despiste: 0.5, memoria: 0, fidelidad: 1, sutilezas: { candado: false, reparo: false, pasoAtras: false } },
+    K: 3, ruido: 2, despiste: 0.5, largo: 0.3, memoria: 0, fidelidad: 1, sutilezas: { candado: false, reparo: false, pasoAtras: false } },
   { id: 'diestro', nombre: 'Diestro', frase: 'Hombre ya ducho en la ciencia de las armas: guarda memoria de tus últimas jugadas, aunque la memoria a veces le falla.',
-    K: 6, ruido: 1, despiste: 0.25, memoria: 2, fidelidad: 0.75, sutilezas: { candado: true, reparo: false, pasoAtras: false } },
+    K: 6, ruido: 1, despiste: 0.25, largo: 1.2, memoria: 2, fidelidad: 0.75, sutilezas: { candado: true, reparo: false, pasoAtras: false } },
   { id: 'preboste', nombre: 'Preboste', frase: 'Ayudante del maestro, con licencia para enseñar en su ausencia: lleva buena cuenta de las cartas, sin llegar a la certeza.',
-    K: 12, ruido: 0.7, despiste: 0.1, memoria: 4, fidelidad: 0.85, sutilezas: { candado: true, reparo: true, pasoAtras: false } },
+    K: 12, ruido: 0.7, despiste: 0.1, largo: 0.5, memoria: 4, fidelidad: 0.85, sutilezas: { candado: true, reparo: true, pasoAtras: false } },
   { id: 'maestro', nombre: 'Maestro', frase: 'Examinado en el arte y respetado en la plaza: casi nada se le escapa, pero ni ve tu mano ni es infalible.',
-    K: 0, ruido: 0.4, despiste: 0.03, memoria: 99, fidelidad: 0.95, sutilezas: { candado: true, reparo: true, pasoAtras: true } },
+    K: 0, ruido: 0.4, despiste: 0.03, prevision: 0.2, memoria: 99, fidelidad: 0.95, sutilezas: { candado: true, reparo: true, pasoAtras: true } },
 ];
 const NIVEL_POR_DEFECTO = 'diestro';
 
@@ -34,7 +34,7 @@ function crearRivalNivel(id) {
     const r = crearRivalAzar();
     return { ...r, nombre: niv.nombre, nivel: niv.id };
   }
-  const P = { ...PESOS_RIVAL, azar: 0 };
+  const P = { ...PESOS_RIVAL, azar: 0, ...(niv.pesos || {}) };
   return {
     nombre: niv.nombre,
     nivel: niv.id,
@@ -131,23 +131,39 @@ function puntuarJugadaNivel(estado, jugada, P, niv, rng) {
   const real = aplicar(estado, jugada);
   if (real.fase === 'fin') return real.empate ? -100 : real.ganador === yo ? 1000 : -1000;
   if (real.eventos.some((ev) => ev.tipo === 'golpeDoble')) return P.golpeDoble;
-  if (esParadaSinHerida(cfg, jugada.cartas)) return P.paradaSinHerida;
+  const miedo = niv.miedo || 0;
+  if (esParadaSinHerida(cfg, jugada.cartas)) return P.paradaSinHerida + miedo;
   const sig = vistaImperfecta(real, otro, niv, rng);
   if (esPasoAtras(cfg, jugada.cartas)) {
     const cortable = sut.pasoAtras && indicesIntervenibles_nivel(sig, sut).length > 0;
-    return cortable ? P.pasoAtrasCortable : P.pasoAtrasSeguro;
+    return (cortable ? P.pasoAtrasCortable : P.pasoAtrasSeguro) + miedo;
   }
   const ac = cfg.ajustes.aperturaCercana;
   const abreCerca = jugada.tipo === 'declarar' && ac.cartas.includes(cfg.cartaDe[jugada.cartas[0]]);
   const coste = (estado.vida[yo] - real.vida[yo]) * P.recibir + (abreCerca ? ac.heridaExtraRecibida * P.recibir * 0.5 : 0);
   const dano = danoDeSerie(estado, yo, jugada.cartas, jugada.tipo === 'declarar').dano;
   const expuestas = indicesIntervenibles_nivel(sig, sut).length;
+  const n = jugada.cartas.length;
+  // Previsión: la mejor respuesta que el rival tendría, según lo que cree que le queda en la mano.
+  let prev = 0;
+  if (niv.prevision && sig.fase === 'responder') {
+    let m = -Infinity;
+    for (const r of jugadasLegales(sig)) {
+      const v = r.tipo === 'noIntervenir' ? 0 : puntuarJugada(sig, r, PESOS_RIVAL);
+      if (v > m) m = v;
+    }
+    if (m > -Infinity) prev = -niv.prevision * m;
+  }
+  const largo = (niv.largo || 0) * n; // saber enlazar cadenas largas
+  const corto = miedo * Math.max(0, 4 - n) * 0.6; // el miedoso prefiere jugadas cortas
+  const cargar = (niv.cargar || 0) * n;
+  const cargarPen = (niv.cargarPen || 0) * n; // carga la serie solo si cree que no pueden contestarle
   if (expuestas === 0) {
     if (dano >= estado.vida[otro]) return 1000;
-    return dano * P.heridaSegura + 2 - coste;
+    return dano * P.heridaSegura + 2 - coste + largo + cargar + corto + prev;
   }
   const extra = cfg.ajustes.roboExtraSerieLarga;
   const netas = jugada.cartas.length - (extra.cartas && jugada.cartas.length >= extra.desde ? extra.cartas : 0);
-  return dano * P.dano - expuestas * P.exposicion - netas * P.cartas - coste;
+  return dano * P.dano - expuestas * P.exposicion - netas * P.cartas - coste + largo - cargarPen + corto + prev;
 }
 
