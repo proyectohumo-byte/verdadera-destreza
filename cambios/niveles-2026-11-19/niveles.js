@@ -9,15 +9,15 @@
 // Los parámetros están todos aquí, en NIVELES, para ajustarlos sin tocar nada más.
 
 const NIVELES = [
-  { id: 'bisono', nombre: 'Bisoño', frase: 'Apenas sabe: mira pocas jugadas, se despista mucho y no recuerda nada.',
+  { id: 'bisono', nombre: 'Bisoño', frase: 'Mozo recién llegado a la sala de armas: empuña la espada con respeto, pero poco sabe de ella.',
     K: 2, ruido: 3, despiste: 0.7, memoria: 0, fidelidad: 1, sutilezas: { candado: false, reparo: false, pasoAtras: false } },
-  { id: 'discipulo', nombre: 'Discípulo', frase: 'Piensa en el daño inmediato. No recuerda lo que has jugado.',
+  { id: 'discipulo', nombre: 'Discípulo', frase: 'Aprende el compás bajo la vista del maestro: atiende a la estocada que tiene delante, no a la que vendrá.',
     K: 3, ruido: 2, despiste: 0.5, memoria: 0, fidelidad: 1, sutilezas: { candado: false, reparo: false, pasoAtras: false } },
-  { id: 'diestro', nombre: 'Diestro', frase: 'Recuerda tus últimas jugadas, aunque a veces falla.',
+  { id: 'diestro', nombre: 'Diestro', frase: 'Hombre ya ducho en la ciencia de las armas: guarda memoria de tus últimas jugadas, aunque la memoria a veces le falla.',
     K: 6, ruido: 1, despiste: 0.25, memoria: 2, fidelidad: 0.75, sutilezas: { candado: true, reparo: false, pasoAtras: false } },
-  { id: 'preboste', nombre: 'Preboste', frase: 'Ayudante del maestro: lleva la cuenta de las cartas con cierta fiabilidad.',
+  { id: 'preboste', nombre: 'Preboste', frase: 'Ayudante del maestro, con licencia para enseñar en su ausencia: lleva buena cuenta de las cartas, sin llegar a la certeza.',
     K: 12, ruido: 0.7, despiste: 0.1, memoria: 4, fidelidad: 0.85, sutilezas: { candado: true, reparo: true, pasoAtras: false } },
-  { id: 'maestro', nombre: 'Maestro', frase: 'Casi no olvida nada, pero no ve tu mano ni es perfecto.',
+  { id: 'maestro', nombre: 'Maestro', frase: 'Examinado en el arte y respetado en la plaza: casi nada se le escapa, pero ni ve tu mano ni es infalible.',
     K: 0, ruido: 0.4, despiste: 0.03, memoria: 99, fidelidad: 0.95, sutilezas: { candado: true, reparo: true, pasoAtras: true } },
 ];
 const NIVEL_POR_DEFECTO = 'diestro';

@@ -10,11 +10,11 @@ s = s.replace(marca, niv + marca)
 viejo = '''        <label><input type="radio" name="nivel" value="reglas" checked> Normal: elige la mejor jugada según reglas fijas</label>
         <label><input type="radio" name="nivel" value="azar"> Fácil: juega cualquier jugada legal al azar</label>'''
 assert s.count(viejo) == 1
-nuevo = '''        <label><input type="radio" name="nivel" value="bisono"> <b>Bisoño</b>: apenas sabe jugar; se despista mucho</label>
-        <label><input type="radio" name="nivel" value="discipulo"> <b>Discípulo</b>: piensa en el daño inmediato y no recuerda lo que has jugado</label>
-        <label><input type="radio" name="nivel" value="diestro" checked> <b>Diestro</b>: recuerda tus últimas jugadas, aunque a veces falla</label>
-        <label><input type="radio" name="nivel" value="preboste"> <b>Preboste</b>: ayudante del maestro; lleva la cuenta de las cartas con cierta fiabilidad</label>
-        <label><input type="radio" name="nivel" value="maestro"> <b>Maestro</b>: casi no olvida nada, aunque no ve tu mano ni es perfecto</label>'''
+nuevo = '''        <label><input type="radio" name="nivel" value="bisono"> <b>Bisoño</b>: Mozo recién llegado a la sala de armas: empuña la espada con respeto, pero poco sabe de ella.</label>
+        <label><input type="radio" name="nivel" value="discipulo"> <b>Discípulo</b>: Aprende el compás bajo la vista del maestro: atiende a la estocada que tiene delante, no a la que vendrá.</label>
+        <label><input type="radio" name="nivel" value="diestro" checked> <b>Diestro</b>: Hombre ya ducho en la ciencia de las armas: guarda memoria de tus últimas jugadas, aunque la memoria a veces le falla.</label>
+        <label><input type="radio" name="nivel" value="preboste"> <b>Preboste</b>: Ayudante del maestro, con licencia para enseñar en su ausencia: lleva buena cuenta de las cartas, sin llegar a la certeza.</label>
+        <label><input type="radio" name="nivel" value="maestro"> <b>Maestro</b>: Examinado en el arte y respetado en la plaza: casi nada se le escapa, pero ni ve tu mano ni es infalible.</label>'''
 s = s.replace(viejo, nuevo)
 v1 = "ui.rival = f.get('nivel') === 'azar' ? crearRivalAzar() : crearRivalReglas();"
 assert s.count(v1) == 1
