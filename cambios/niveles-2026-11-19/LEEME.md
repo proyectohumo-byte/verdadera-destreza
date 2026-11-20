@@ -40,6 +40,8 @@ Todo es aditivo, salvo las líneas del punto 2. No se toca el motor (`engine/`) 
 
 8. **Cruz de cierre en las ventanas** (`iniciar` en `ui/app.js` y CSS `.cerrar-x`): al arrancar se añade un botón "×" arriba a la derecha de cada `<dialog>` (Nueva partida, Historial, Cómo jugar), que llama a `d.close()`. Queda fija arriba al desplazar el contenido. Pedido por el autor el 20/11/2026.
 
+9. **Tocados contados desde la crónica, incluida la muerte súbita** (`golpesDeCronica`, nueva, usada en `calcularRanking` y `htmlEnfrentamientos`, `ui/app.js`): antes los tocados eran "vida inicial - vida final", que no ve los puntos perdidos antes de una muerte súbita (los dos vuelven a 1). Ahora se recorre la crónica de la partida (`p.secuencia`: pasos `herida` y `doble`) y se suman los puntos realmente perdidos, contando la vida que se tenía antes de cada reinicio. Funciona también con partidas ya guardadas, siempre que conserven su crónica; si no la tienen, se usa el cálculo antiguo. No hace falta que sea exacto al milímetro: solo que refleje lo que cuenta la crónica. Además, la partida en curso guarda y restaura su crónica (`secuencia`) para que los tocados de una partida retomada no se pierdan. Pedido por el autor el 20/11/2026.
+
 El script `aplicar-parches.py` aplica exactamente esos cambios al `index.html` compilado, y se ha comprobado que reproduce el archivo de prueba byte a byte. Sirve como referencia de los textos exactos.
 
 ## Cómo funciona cada nivel

@@ -191,5 +191,46 @@ s = s.replace(v14, """  // Una cruz arriba a la derecha en cada ventana emergent
   }
 """ + v14)
 
+v15 = "function calcularRanking(partidas) {"
+assert s.count(v15) == 1
+s = s.replace(v15, r'''/**
+ * Puntos de herida dados por cada color según la crónica de la partida. Cuenta también los puntos
+ * perdidos antes de una muerte súbita (los dos vuelven a 1), que "vida inicial - vida final" no ve.
+ * Devuelve null si la partida no tiene crónica.
+ */
+function golpesDeCronica(p) {
+  if (!p.secuencia?.length || !p.vidaInicial) return null;
+  const v = { blanco: p.vidaInicial, negro: p.vidaInicial };
+  const dados = { blanco: 0, negro: 0 };
+  for (const paso of p.secuencia) {
+    if (paso.tipo === 'herida') {
+      dados[paso.atacante] += Math.max(0, v[paso.herido] - paso.vida);
+      v[paso.herido] = paso.vida;
+    } else if (paso.tipo === 'doble') {
+      const subita = /súbita/.test(paso.resultado ?? '');
+      for (const j of ['blanco', 'negro']) {
+        dados[j === 'blanco' ? 'negro' : 'blanco'] += subita ? v[j] : Math.max(0, v[j] - paso.vida[j]);
+        v[j] = paso.vida[j];
+      }
+    }
+  }
+  return dados;
+}
+
+function calcularRanking(partidas) {''')
+v18 = "      if (p.vida && p.vidaInicial) {\n        f.puntosDados += p.vidaInicial - p.vida[otro];"
+assert s.count(v18) == 1
+s = s.replace(v18, "      const golpes = golpesDeCronica(p);\n      if (golpes) {\n        f.puntosDados += golpes[lado];\n        f.puntosRecibidos += golpes[otro];\n      } else if (p.vida && p.vidaInicial) {\n        f.puntosDados += p.vidaInicial - p.vida[otro];")
+v19 = "      if (p.vida && p.vidaInicial) {\n        f.dados += p.vidaInicial - p.vida[otro];"
+assert s.count(v19) == 1
+s = s.replace(v19, "      const golpes = golpesDeCronica(p);\n      if (golpes) {\n        f.dados += golpes[lado];\n        f.recibidos += golpes[otro];\n      } else if (p.vida && p.vidaInicial) {\n        f.dados += p.vidaInicial - p.vida[otro];")
+# partida en curso: la crónica también se guarda y se restaura
+v21 = "      registro: ui.registro,\n      manoVisible: ui.manoVisible,"
+assert s.count(v21) == 1
+s = s.replace(v21, "      registro: ui.registro,\n      secuencia: ui.secuencia ?? [],\n      manoVisible: ui.manoVisible,")
+v22 = "    ui.secuencia = [];\n    ui.pensando = false;\n    ui.manoVisible = !!g.manoVisible;"
+assert s.count(v22) == 1
+s = s.replace(v22, "    ui.secuencia = g.secuencia ?? [];\n    ui.pensando = false;\n    ui.manoVisible = !!g.manoVisible;")
+
 open(salida, 'w', encoding='utf-8').write(s)
 print('ok', len(s))
