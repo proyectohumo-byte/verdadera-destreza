@@ -196,7 +196,8 @@ assert s.count(v15) == 1
 s = s.replace(v15, r'''/**
  * Puntos de herida dados por cada color según la crónica de la partida. Cuenta también los puntos
  * perdidos antes de una muerte súbita (los dos vuelven a 1), que "vida inicial - vida final" no ve.
- * Devuelve null si la partida no tiene crónica.
+ * Devuelve null si la partida no tiene crónica. Se calcula UNA vez, al terminar la partida, y se guarda en
+ * la propia partida (`golpes`); el ranking solo suma lo guardado.
  */
 function golpesDeCronica(p) {
   if (!p.secuencia?.length || !p.vidaInicial) return null;
@@ -220,10 +221,10 @@ function golpesDeCronica(p) {
 function calcularRanking(partidas) {''')
 v18 = "      if (p.vida && p.vidaInicial) {\n        f.puntosDados += p.vidaInicial - p.vida[otro];"
 assert s.count(v18) == 1
-s = s.replace(v18, "      const golpes = golpesDeCronica(p);\n      if (golpes) {\n        f.puntosDados += golpes[lado];\n        f.puntosRecibidos += golpes[otro];\n      } else if (p.vida && p.vidaInicial) {\n        f.puntosDados += p.vidaInicial - p.vida[otro];")
+s = s.replace(v18, "      if (p.golpes) {\n        f.puntosDados += p.golpes[lado];\n        f.puntosRecibidos += p.golpes[otro];\n      } else if (p.vida && p.vidaInicial) {\n        f.puntosDados += p.vidaInicial - p.vida[otro];")
 v19 = "      if (p.vida && p.vidaInicial) {\n        f.dados += p.vidaInicial - p.vida[otro];"
 assert s.count(v19) == 1
-s = s.replace(v19, "      const golpes = golpesDeCronica(p);\n      if (golpes) {\n        f.dados += golpes[lado];\n        f.recibidos += golpes[otro];\n      } else if (p.vida && p.vidaInicial) {\n        f.dados += p.vidaInicial - p.vida[otro];")
+s = s.replace(v19, "      if (p.golpes) {\n        f.dados += p.golpes[lado];\n        f.recibidos += p.golpes[otro];\n      } else if (p.vida && p.vidaInicial) {\n        f.dados += p.vidaInicial - p.vida[otro];")
 # partida en curso: la crónica también se guarda y se restaura
 v21 = "      registro: ui.registro,\n      manoVisible: ui.manoVisible,"
 assert s.count(v21) == 1
@@ -231,6 +232,33 @@ s = s.replace(v21, "      registro: ui.registro,\n      secuencia: ui.secuencia 
 v22 = "    ui.secuencia = [];\n    ui.pensando = false;\n    ui.manoVisible = !!g.manoVisible;"
 assert s.count(v22) == 1
 s = s.replace(v22, "    ui.secuencia = g.secuencia ?? [];\n    ui.pensando = false;\n    ui.manoVisible = !!g.manoVisible;")
+
+v23 = "    vidaInicial: ui.config.ajustes.vidaInicial,\n    secuencia: ui.secuencia ?? [],"
+assert s.count(v23) == 1
+s = s.replace(v23, "    vidaInicial: ui.config.ajustes.vidaInicial,\n    golpes: golpesDeCronica({ secuencia: ui.secuencia ?? [], vidaInicial: ui.config.ajustes.vidaInicial }) ?? undefined,\n    secuencia: ui.secuencia ?? [],")
+v24 = "let filtroHistorial = 'todas';"
+assert s.count(v24) == 1
+s = s.replace(v24, r'''// PARCHE TEMPORAL (solo para la versión de prueba; NO llevar a la versión final).
+// Las partidas guardadas antes de este cambio no tienen `golpes`: se calculan una sola vez desde su
+// crónica y se guardan, de modo que quedan fijas como las demás. En la versión final todas las partidas
+// ya se registran con `golpes`, así que esta función sobra y debe borrarse (con su llamada en `iniciar`).
+function migrarGolpesPartidasAntiguas() {
+  try {
+    const todas = leerPartidas();
+    let cambios = 0;
+    for (const p of todas) {
+      if (p.golpes) continue;
+      const g = golpesDeCronica(p);
+      if (g) { p.golpes = g; cambios++; }
+    }
+    if (cambios) guardarJSON(CLAVE_PARTIDAS, todas);
+  } catch (err) { /* sin almacenamiento: se queda el cálculo antiguo */ }
+}
+
+let filtroHistorial = 'todas';''')
+v25 = "  enlazarEventos();\n  enlazarArrastre();"
+assert s.count(v25) == 1
+s = s.replace(v25, "  migrarGolpesPartidasAntiguas(); // PARCHE TEMPORAL: borrar en la versión final\n" + v25)
 
 open(salida, 'w', encoding='utf-8').write(s)
 print('ok', len(s))
