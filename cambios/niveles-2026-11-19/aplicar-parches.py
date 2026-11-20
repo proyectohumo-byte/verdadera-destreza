@@ -419,18 +419,18 @@ function htmlTitulos(partidas) {
         : `<em>Sin título aún</em>`;
       const nota = t.siguiente ? `Para ser ${t.siguiente}: ${t.falta}.` : 'Es el título más alto.';
       const progreso = t.progreso
-        ? `<ul class="progreso-titulo">${t.progreso
+        ? `<details class="progreso-titulo"><summary><span class="mas">Mostrar más</span><span class="menos">Mostrar menos</span></summary><ul>${t.progreso
             .map((x) => {
               const pct = x.n ? Math.round((100 * x.g) / x.n) : 0;
               const resto = `te ${x.partidas === 1 ? 'queda' : 'quedan'} ${x.partidas} ${x.partidas === 1 ? 'partida' : 'partidas'}, ganando al menos ${x.victorias}`;
               return `<li class="${x.dominado ? 'hecho' : ''}">${x.dominado ? '✓' : '·'} ${escapar(x.nombre)}: ${x.dominado ? `dominado (${x.g} de ${x.n}, ${pct} %)` : `${x.n} de ${x.coste} partidas${x.n ? `, ${pct} %` : ''}: ${resto}`}</li>`;
             })
-            .join('')}</ul>`
+            .join('')}</ul><p class="nota-titulo">Cada categoría se gana venciendo a su propio nivel con soltura, y en orden. Saltarte niveles cuesta mucho más. Mide cómo juegas, no cuántas partidas llevas.</p></details>`
         : '';
       return `<li title="${escapar(nota)}"><span class="titulo-nombre">${escapar(n)}</span> ${texto} <span class="titulo-detalle">(${t.partidas} ${t.partidas === 1 ? 'partida' : 'partidas'} contra el ordenador)</span>${progreso}</li>`;
     });
   if (!filas.length) return '';
-  return `<div class="bloque-titulos"><h3>Título de esgrimista</h3><ul>${filas.join('')}</ul><p class="nota-titulo">Cada categoría se gana venciendo a su propio nivel con soltura, y en orden. Saltarte niveles cuesta mucho más. Mide cómo juegas, no cuántas partidas llevas.</p></div>`;
+  return `<div class="bloque-titulos"><h3>Título de esgrimista</h3><ul>${filas.join('')}</ul></div>`;
 }
 
 /** Resultados de cada esgrimista contra cada rival concreto (por ejemplo, "Ordenador (diestro)"). */''')
@@ -445,6 +445,11 @@ s = s.replace(v32, """.bloque-titulos { margin: 4px 0 12px; padding: 8px 12px; b
 .bloque-titulos li { padding: 2px 0; cursor: help; }
 .bloque-titulos .titulo-nombre { font-weight: bold; margin-right: 6px; }
 .bloque-titulos strong { color: var(--sangre); }
+.bloque-titulos summary { cursor: pointer; font-size: 12px; font-style: italic; opacity: 0.8; list-style: none; }
+.bloque-titulos summary::-webkit-details-marker { display: none; }
+.bloque-titulos details .menos, .bloque-titulos details[open] .mas { display: none; }
+.bloque-titulos details[open] .menos { display: inline; }
+.bloque-titulos details ul { padding-left: 4px; }
 .bloque-titulos .titulo-detalle, .bloque-titulos .nota-titulo { font-size: 12px; opacity: 0.75; }
 .bloque-titulos .nota-titulo { margin: 4px 0 0; font-style: italic; }
 .progreso-titulo { list-style: none; margin: 4px 0 2px; padding: 0; font-size: 12.5px; }
