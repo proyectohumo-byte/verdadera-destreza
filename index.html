@@ -534,6 +534,11 @@ button.negativo:hover { background: linear-gradient(#7d211c, #5a1410); }
 .tabla-ranking td:nth-child(2), .tabla-ranking th:nth-child(2) { text-align: left; }
 .tabla-ranking tbody tr:first-child td { font-weight: bold; }
 .tabla-ranking.enfrentamientos tbody tr:first-child td { font-weight: normal; }
+.tabla-desliza { overflow-x: auto; }
+@media (max-width: 560px) {
+  .tabla-ranking { font-size: 12.5px; }
+  .tabla-ranking th, .tabla-ranking td { padding: 4px 3px; }
+}
 .tabla-ranking.enfrentamientos td:first-child { text-align: left; }
 .tabla-ranking.enfrentamientos td:nth-child(2), .tabla-ranking.enfrentamientos th:nth-child(2) { text-align: center; }
 .tabla-ranking th[data-ayuda] { position: relative; cursor: help; text-decoration: underline dotted; text-underline-offset: 3px; }
@@ -2130,6 +2135,15 @@ function borrarPartida(id) {
   guardarJSON(CLAVE_PARTIDAS, leerPartidas().filter((p) => p.id !== id));
 }
 
+const NOMBRES_ANTIGUOS = { 'Ordenador (fácil)': 'Ordenador (bisoño)', 'Ordenador (normal)': 'Ordenador (maestro)' };
+
+/** La partida con los rivales de antes de los cinco niveles renombrados: Fácil pasa a Bisoño y Normal a Maestro. */
+function conNombresActuales(p) {
+  const blanco = NOMBRES_ANTIGUOS[p.blanco] ?? p.blanco;
+  const negro = NOMBRES_ANTIGUOS[p.negro] ?? p.negro;
+  return blanco === p.blanco && negro === p.negro ? p : { ...p, blanco, negro };
+}
+
 /** Borra el historial salvo las favoritas. */
 function borrarRanking() {
   guardarJSON(CLAVE_PARTIDAS, leerPartidas().filter((p) => p.favorita));
@@ -3191,9 +3205,9 @@ const celdasRanking = (f) => `<td>${f.jugadas}</td><td>${f.ganadas}</td><td>${f.
 function htmlEnfrentamientos(partidas) {
   const lista = calcularEnfrentamientos(partidas);
   if (!lista.length) return '';
-  return `<details class="bloque-ranking" open><summary>Resultados contra cada rival</summary><table class="tabla-ranking enfrentamientos"><thead><tr><th>Enfrentamiento</th>${COLUMNAS_RANKING}</tr></thead><tbody>${lista
+  return `<details class="bloque-ranking" open><summary>Resultados contra cada rival</summary><div class="tabla-desliza"><table class="tabla-ranking enfrentamientos"><thead><tr><th>Enfrentamiento</th>${COLUMNAS_RANKING}</tr></thead><tbody>${lista
     .map((f) => `<tr><td>${escapar(f.yo)} contra ${escapar(f.rival)}</td>${celdasRanking(f)}</tr>`)
-    .join('')}</tbody></table></details>`;
+    .join('')}</tbody></table></div></details>`;
 }
 
 function htmlTitulos(partidas) {
@@ -3223,7 +3237,7 @@ let filtroHistorial = 'todas';
 const abiertas = new Set(); // partidas desplegadas en el historial
 
 function abrirRanking() {
-  const todas = leerPartidas();
+  const todas = leerPartidas().map(conNombresActuales);
   const lista = todas.filter((p) => filtroHistorial === 'todas' || p.favorita).reverse();
   const nFav = todas.filter((p) => p.favorita).length;
   const filtros = `<div class="filtros-historial">
@@ -3235,9 +3249,9 @@ function abrirRanking() {
     : `<p>${filtroHistorial === 'favoritas' ? 'No tienes partidas favoritas. Pulsa la estrella ☆ de una partida para marcarla.' : 'Todavía no hay partidas terminadas.'}</p>`;
   const filas = calcularRanking(todas);
   const ranking = filas.length
-    ? `<details class="bloque-ranking"><summary>Ranking por esgrimista</summary><table class="tabla-ranking"><thead><tr>${cabRanking('#', 'Posición en la clasificación')}<th>Esgrimista</th>${COLUMNAS_RANKING}</tr></thead><tbody>${filas
+    ? `<details class="bloque-ranking"><summary>Ranking por esgrimista</summary><div class="tabla-desliza"><table class="tabla-ranking"><thead><tr>${cabRanking('#', 'Posición en la clasificación')}<th>Esgrimista</th>${COLUMNAS_RANKING}</tr></thead><tbody>${filas
         .map((f, i) => `<tr><td>${i + 1}</td><td>${escapar(f.nombre)}</td>${celdasRanking(f)}</tr>`)
-        .join('')}</tbody></table></details>`
+        .join('')}</tbody></table></div></details>`
     : '';
   $('#ranking-contenido').innerHTML = htmlTitulos(todas) + htmlEnfrentamientos(todas) + ranking + filtros + partidas;
   for (const d of document.querySelectorAll('#ranking-contenido details[data-id]')) {
@@ -3822,7 +3836,7 @@ function abrirNuevaPartida() {
 function marcarNivelSegunTitulo() {
   const dlg = $('#dlg-nueva');
   const nombre = dlg.querySelector('[name=nombre]').value.trim();
-  const radio = dlg.querySelector(`[name=nivel][value="${nivelSegunTitulo(nombre, leerPartidas())}"]`);
+  const radio = dlg.querySelector(`[name=nivel][value="${nivelSegunTitulo(nombre, leerPartidas().map(conNombresActuales))}"]`);
   if (radio) radio.checked = true;
 }
 
