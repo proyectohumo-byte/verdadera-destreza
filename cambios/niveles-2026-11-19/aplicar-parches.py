@@ -358,6 +358,17 @@ function tituloEsgrimista(nombre, partidas) {
     const st = marcador.get(n.id) ?? { n: 0, g: 0 };
     return st.n >= TITULO.dominioPartidas && st.g / st.n >= TITULO.dominioRatio;
   });
+  // Cuánto queda en cada categoría: partidas que faltan y victorias necesarias para llegar al porcentaje.
+  const progreso = NIVELES.map((n, k) => {
+    const st = marcador.get(n.id) ?? { n: 0, g: 0 };
+    let m = Math.max(0, TITULO.dominioPartidas - st.n);
+    let w = 0;
+    for (; m <= 500; m++) {
+      w = Math.max(0, Math.ceil(TITULO.dominioRatio * (st.n + m) - 1e-9) - st.g);
+      if (w <= m) break;
+    }
+    return { nombre: n.nombre, n: st.n, g: st.g, dominado: dom[k], partidas: m, victorias: w };
+  });
   let enOrden = 0; // niveles dominados seguidos desde Bisoño
   while (enOrden < dom.length && dom[enOrden]) enOrden++;
   const masAlto = dom.lastIndexOf(true); // nivel más fuerte dominado (-1 si ninguno)
@@ -380,7 +391,7 @@ function tituloEsgrimista(nombre, partidas) {
   const siguiente = NIVELES[indice + 1] ?? null;
   if (siguiente && porFuerza < porRecorrido) falta = 'sigue ganando a rivales fuertes: tu nivel de juego aún no alcanza al suyo';
   else if (siguiente && indice + 1 === ultimo && enOrden < ultimo) falta = `para ser ${siguiente.nombre} tienes que combatir con todos los niveles: ${falta}`;
-  return { titulo: nivel?.nombre ?? null, partidas: juegos.length, fuerza: Math.round(media), siguiente: siguiente?.nombre ?? null, falta };
+  return { titulo: nivel?.nombre ?? null, partidas: juegos.length, fuerza: Math.round(media), siguiente: siguiente?.nombre ?? null, falta, progreso };
 }
 
 function htmlTitulos(partidas) {
@@ -393,7 +404,16 @@ function htmlTitulos(partidas) {
         ? `<strong>${escapar(t.titulo)}</strong>`
         : `<em>Sin título aún</em>`;
       const nota = t.siguiente ? `Para ser ${t.siguiente}: ${t.falta}.` : 'Es el título más alto.';
-      return `<li title="${escapar(nota)}"><span class="titulo-nombre">${escapar(n)}</span> ${texto} <span class="titulo-detalle">(${t.partidas} ${t.partidas === 1 ? 'partida' : 'partidas'} contra el ordenador)</span></li>`;
+      const progreso = t.progreso
+        ? `<ul class="progreso-titulo">${t.progreso
+            .map((x) => {
+              const pct = x.n ? Math.round((100 * x.g) / x.n) : 0;
+              const resto = `te ${x.partidas === 1 ? 'queda' : 'quedan'} ${x.partidas} ${x.partidas === 1 ? 'partida' : 'partidas'}, ganando al menos ${x.victorias}`;
+              return `<li class="${x.dominado ? 'hecho' : ''}">${x.dominado ? '✓' : '·'} ${escapar(x.nombre)}: ${x.dominado ? `dominado (${x.g} de ${x.n}, ${pct} %)` : `${x.n} de ${TITULO.dominioPartidas} partidas${x.n ? `, ${pct} %` : ''}: ${resto}`}</li>`;
+            })
+            .join('')}</ul>`
+        : '';
+      return `<li title="${escapar(nota)}"><span class="titulo-nombre">${escapar(n)}</span> ${texto} <span class="titulo-detalle">(${t.partidas} ${t.partidas === 1 ? 'partida' : 'partidas'} contra el ordenador)</span>${progreso}</li>`;
     });
   if (!filas.length) return '';
   return `<div class="bloque-titulos"><h3>Título de esgrimista</h3><ul>${filas.join('')}</ul><p class="nota-titulo">Cada categoría se gana venciendo a su propio nivel con soltura, y en orden. Mide cómo juegas, no cuántas partidas llevas.</p></div>`;
@@ -413,6 +433,9 @@ s = s.replace(v32, """.bloque-titulos { margin: 4px 0 12px; padding: 8px 12px; b
 .bloque-titulos strong { color: var(--sangre); }
 .bloque-titulos .titulo-detalle, .bloque-titulos .nota-titulo { font-size: 12px; opacity: 0.75; }
 .bloque-titulos .nota-titulo { margin: 4px 0 0; font-style: italic; }
+.progreso-titulo { list-style: none; margin: 4px 0 2px; padding: 0; font-size: 12.5px; }
+.progreso-titulo li { padding: 1px 0; opacity: 0.85; }
+.progreso-titulo li.hecho { opacity: 1; color: var(--sangre); }
 """ + v32)
 
 open(salida, 'w', encoding='utf-8').write(s)
