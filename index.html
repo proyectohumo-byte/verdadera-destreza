@@ -275,6 +275,8 @@ body.arrastrando .hueco-serie.unico { width: auto; }
 .aviso-caja p { line-height: 1.55; font-size: 15.5px; }
 dialog { padding: 22px 28px; max-width: 620px; }
 dialog::backdrop { background: #1f1711b3; }
+.cerrar-x { position: sticky; top: 0; float: right; z-index: 4; width: 34px; height: 34px; margin: -10px -14px 0 8px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 26px; line-height: 1; color: var(--tinta); background: transparent; border: 1px solid transparent; border-radius: 50%; cursor: pointer; }
+.cerrar-x:hover, .cerrar-x:focus-visible { background: var(--papel-claro); border-color: var(--tinta-suave); color: var(--sangre); }
 fieldset { border: 1px solid var(--tinta-tenue); border-radius: 2px; margin: 0 0 12px; padding: 8px 12px; background: #fffaf04d; }
 legend { color: var(--sangre); font-size: 14px; font-variant: small-caps; letter-spacing: 1px; padding: 0 6px; }
 fieldset label { display: block; padding: 3px 0; }
@@ -531,6 +533,34 @@ button.negativo:hover { background: linear-gradient(#7d211c, #5a1410); }
 .tabla-ranking th, .tabla-ranking td { padding: 5px 6px; border-bottom: 1px solid rgba(90, 60, 30, 0.25); text-align: center; }
 .tabla-ranking td:nth-child(2), .tabla-ranking th:nth-child(2) { text-align: left; }
 .tabla-ranking tbody tr:first-child td { font-weight: bold; }
+.tabla-ranking.enfrentamientos tbody tr:first-child td { font-weight: normal; }
+.tabla-ranking.enfrentamientos td:first-child { text-align: left; }
+.tabla-ranking.enfrentamientos td:nth-child(2), .tabla-ranking.enfrentamientos th:nth-child(2) { text-align: center; }
+.tabla-ranking th[data-ayuda] { position: relative; cursor: help; text-decoration: underline dotted; text-underline-offset: 3px; }
+.tabla-ranking th[data-ayuda]:hover::after, .tabla-ranking th[data-ayuda]:focus::after {
+  content: attr(data-ayuda); position: absolute; top: 100%; left: 50%; transform: translateX(-50%); z-index: 5;
+  background: #2b1d12; color: #f7ecd6; font-size: 12px; font-weight: normal; line-height: 1.3; white-space: normal; width: max-content; max-width: 220px;
+  padding: 4px 8px; border-radius: 4px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4); text-decoration: none; pointer-events: none;
+}
+.tabla-ranking th[data-ayuda]:nth-last-child(-n+2):hover::after, .tabla-ranking th[data-ayuda]:nth-last-child(-n+2):focus::after { left: auto; right: 0; transform: none; }
+.tabla-ranking th[data-ayuda]:first-child:hover::after, .tabla-ranking th[data-ayuda]:first-child:focus::after { left: 0; transform: none; }
+.bloque-titulos { margin: 4px 0 12px; padding: 8px 12px; border: 1px solid var(--tinta-suave); border-radius: 2px; background: rgba(255, 255, 255, 0.35); }
+.bloque-titulos h3 { margin: 0 0 4px; font-size: 15px; }
+.bloque-titulos ul { list-style: none; margin: 0; padding: 0; }
+.bloque-titulos li { padding: 2px 0; }
+.bloque-titulos .titulo-nombre { font-weight: bold; margin-right: 6px; }
+.bloque-titulos strong { color: var(--sangre); }
+.bloque-titulos .titulo-falta { font-size: 12.5px; font-style: italic; opacity: 0.8; }
+.bloque-titulos summary { cursor: pointer; font-size: 12px; font-style: italic; opacity: 0.8; list-style: none; }
+.bloque-titulos summary::-webkit-details-marker { display: none; }
+.bloque-titulos details .menos, .bloque-titulos details[open] .mas { display: none; }
+.bloque-titulos details[open] .menos { display: inline; }
+.bloque-titulos details ul { padding-left: 4px; }
+.bloque-titulos .titulo-detalle, .bloque-titulos .nota-titulo { font-size: 12px; opacity: 0.75; }
+.bloque-titulos .nota-titulo { margin: 4px 0 0; font-style: italic; }
+.progreso-titulo { list-style: none; margin: 4px 0 2px; padding: 0; font-size: 12.5px; }
+.progreso-titulo li { padding: 1px 0; opacity: 0.85; }
+.progreso-titulo li.hecho { opacity: 1; color: var(--sangre); }
 .ultimas-partidas { padding-left: 18px; font-size: 13.5px; }
 .nota-ranking { font-style: italic; font-size: 13.5px; }
 #ranking-contenido { overflow-x: auto; }
@@ -624,9 +654,12 @@ button.negativo:hover { background: linear-gradient(#7d211c, #5a1410); }
         <label><input type="radio" name="color" value="negro"> Negro (mazo oscuro)</label>
       </fieldset>
       <fieldset>
-        <legend>Rival por ordenador</legend>
-        <label><input type="radio" name="nivel" value="reglas" checked> Normal: elige la mejor jugada según reglas fijas</label>
-        <label><input type="radio" name="nivel" value="azar"> Fácil: juega cualquier jugada legal al azar</label>
+        <legend>Rival por ordenador (sale marcado el de tu título)</legend>
+        <label><input type="radio" name="nivel" value="bisono" checked> <b>Bisoño</b>: Mozo recién llegado a la sala de armas. Más pronto huye que acomete, y si acierta, es por ventura.</label>
+        <label><input type="radio" name="nivel" value="discipulo"> <b>Discípulo</b>: Va ganando conocimientos y perdiendo el miedo, quizá demasiado. Acomete con brío, mas en el aprieto le vencen sus mañas.</label>
+        <label><input type="radio" name="nivel" value="diestro"> <b>Diestro</b>: Hombre ya ducho en la ciencia de las armas. Encadena sus tretas con soltura y procura leer el lance antes de que acabe.</label>
+        <label><input type="radio" name="nivel" value="preboste"> <b>Preboste</b>: Segundo del maestro, con licencia para enseñar en su ausencia. Estudia a su contrario con paciencia y rara vez se deja ganar el tiempo.</label>
+        <label><input type="radio" name="nivel" value="maestro"> <b>Maestro</b>: Examinado en el arte y con carta de maestro. Pocas tretas le son desconocidas y responde antes de que acabes de pensarlas, mas también los maestros yerran.</label>
       </fieldset>
       <fieldset>
         <legend>Mano</legend>
@@ -1687,6 +1720,177 @@ function puntuarJugada(estado, jugada, P) {
   return dano * P.dano - expuestas * P.exposicion - netas * P.cartas - coste;
 }
 
+// ---- rival/niveles.js ----
+// Cinco niveles de dificultad para el ordenador. Ningún nivel ve la mano del rival: cada uno limita lo que
+// hace "Reglas fijas" (rival/reglas-fijas.js):
+//   - atención: solo evalúa K jugadas elegidas al azar (K = 0: todas);
+//   - memoria: solo recuerda las cartas jugadas por el rival en las últimas `memoria` series, y cada una con
+//     probabilidad `fidelidad` (si no, la da por no jugada: cree que aún puede tenerla);
+//   - sutilezas de reglas que anticipa del rival (candado, límite del Reparo, corte del paso atrás).
+// Además, `ruido` es el azar añadido a cada puntuación (en "Reglas fijas" es 0,4) y `despiste` la probabilidad
+// de jugar una jugada legal al azar. Ajustes de estilo, opcionales: `miedo` (prefiere Reparo, Compás y series
+// cortas), `largo` (premia enlazar cadenas), `gustoReparo` (premia el Reparo), `pasoAtrasPen` (le quita las
+// ganas de dar el paso atrás) y `prevision` (resta parte de la mejor respuesta que cree que tendrá el rival).
+// `fuerza` es una escala tipo Elo medida en torneos entre niveles (3000 partidas por pareja, mano de 5): sirve
+// para dar título al jugador según contra quién gana (ui/titulo.js).
+
+
+
+const NIVELES = [
+  { id: 'bisono', nombre: 'Bisoño', fuerza: 0, frase: 'Mozo recién llegado a la sala de armas. Más pronto huye que acomete, y si acierta, es por ventura.',
+    K: 2, ruido: 3, despiste: 0.7, miedo: 3, memoria: 0, fidelidad: 1, sutilezas: { candado: false, reparo: false, pasoAtras: false } },
+  { id: 'discipulo', nombre: 'Discípulo', fuerza: 105, frase: 'Va ganando conocimientos y perdiendo el miedo, quizá demasiado. Acomete con brío, mas en el aprieto le vencen sus mañas.',
+    K: 3, ruido: 2, despiste: 0.45, largo: 0.3, gustoReparo: 1.5, pasoAtrasPen: 3, memoria: 0, fidelidad: 1, sutilezas: { candado: false, reparo: false, pasoAtras: false } },
+  { id: 'diestro', nombre: 'Diestro', fuerza: 205, frase: 'Hombre ya ducho en la ciencia de las armas. Encadena sus tretas con soltura y procura leer el lance antes de que acabe.',
+    K: 6, ruido: 1, despiste: 0.25, largo: 1.2, memoria: 2, fidelidad: 0.75, sutilezas: { candado: true, reparo: false, pasoAtras: false } },
+  { id: 'preboste', nombre: 'Preboste', fuerza: 275, frase: 'Segundo del maestro, con licencia para enseñar en su ausencia. Estudia a su contrario con paciencia y rara vez se deja ganar el tiempo.',
+    K: 12, ruido: 0.7, despiste: 0.1, largo: 0.5, memoria: 4, fidelidad: 0.85, sutilezas: { candado: true, reparo: true, pasoAtras: false } },
+  { id: 'maestro', nombre: 'Maestro', fuerza: 360, frase: 'Examinado en el arte y con carta de maestro. Pocas tretas le son desconocidas y responde antes de que acabes de pensarlas, mas también los maestros yerran.',
+    K: 0, ruido: 0.4, despiste: 0.03, prevision: 0.2, memoria: 99, fidelidad: 0.95, sutilezas: { candado: true, reparo: true, pasoAtras: true } },
+];
+/** Fuerza de los rivales de las partidas guardadas antes de los niveles: "Ordenador (normal)" y "(fácil)". */
+const FUERZA_RIVAL_ANTIGUO = { normal: 365, fácil: -105 };
+const NIVEL_POR_DEFECTO = 'bisono';
+
+function nivelPorId(id) {
+  if (id === 'azar') id = 'bisono'; // valores antiguos del selector: Fácil
+  if (id === 'reglas') id = 'maestro'; // y Normal
+  return NIVELES.find((n) => n.id === id) ?? NIVELES.find((n) => n.id === NIVEL_POR_DEFECTO);
+}
+
+function crearRivalNivel(id) {
+  const niv = nivelPorId(id);
+  const P = { ...PESOS_RIVAL, azar: 0 };
+  return {
+    nombre: niv.nombre,
+    nivel: niv.id,
+    elegir(estado, rng = Math.random) {
+      const js = jugadasLegales(estado);
+      if (js.length === 1) return js[0];
+      if (niv.despiste && rng() < niv.despiste) return js[Math.floor(rng() * js.length)];
+      const cand = niv.K && js.length > niv.K ? muestraAleatoria(js, niv.K, rng) : js;
+      let mejor = cand[0];
+      let mejorP = -Infinity;
+      for (const j of cand) {
+        const p = puntuarJugadaNivel(estado, j, P, niv, rng) + rng() * niv.ruido;
+        if (p > mejorP) {
+          mejorP = p;
+          mejor = j;
+        }
+      }
+      return mejor;
+    },
+  };
+}
+
+function muestraAleatoria(lista, k, rng) {
+  const a = [...lista];
+  for (let i = 0; i < k; i++) {
+    const s = i + Math.floor(rng() * (a.length - i));
+    [a[i], a[s]] = [a[s], a[i]];
+  }
+  return a.slice(0, k);
+}
+
+/**
+ * Lo que el nivel cree del rival: todas las cartas que no ve en la mesa (mano y pila, sin distinguirlas),
+ * más las que ha olvidado que ya se jugaron. Con poca fidelidad también "pierde" alguna carta posible.
+ */
+function vistaImperfecta(estado, otro, niv, rng) {
+  const sinVer = [...estado.mano[otro], ...(estado.pila?.[otro] ?? [])];
+  const olvidadas = [];
+  for (const g of estado.mesa[otro]) {
+    const edad = estado.contadores.series - g.orden;
+    for (const c of g.cartas) {
+      if (edad > niv.memoria || rng() >= niv.fidelidad) olvidadas.push(c);
+    }
+  }
+  const mano = [...sinVer, ...olvidadas];
+  if (niv.fidelidad < 1 && mano.length > 1 && rng() < (1 - niv.fidelidad) / 2) {
+    mano.splice(Math.floor(rng() * mano.length), 1); // da por jugada una carta que quizá aún tiene
+  }
+  return { ...estado, mano: { ...estado.mano, [otro]: mano } };
+}
+
+function primeraValidaNivel(def, serie, indice, suma, pasoAtrasDisponible, sut) {
+  if (!puedeEmpezarContra(def, serie, indice)) return false;
+  if (!estrellaQueInterviene(def, serie, indice)) return false;
+  if (sut.candado && aEspadaSujeta(def, serie, indice)) return false;
+  if (sut.reparo && !cumpleSumaRival(def, def.limiteEnCartas ? medidaRival(def, serie) : suma)) return false;
+  if (def.pasoAtras && !pasoAtrasDisponible) return false;
+  return true;
+}
+
+/** Como indicesIntervenibles del motor, pero anticipando solo las sutilezas que conoce el nivel. */
+function intervenciblesSegunNivel(estado, sut) {
+  if (estado.fase !== 'responder') return [];
+  const cfg = estado.config;
+  const j = estado.turno;
+  const serie = defsDe(cfg, estado.serieDeclarada.cartas);
+  const suma = valorSerie(serie);
+  const conteo = conteoPorCarta(cfg, estado.mano[j]);
+  const res = [];
+  for (let indice = 0; indice < serie.length; indice++) {
+    for (const id of Object.keys(conteo)) {
+      if (primeraValidaNivel(cfg.cartas[id], serie, indice, suma, estado.pasoAtrasDisponible[j], sut) && tieneSerieCompleta(cfg, conteo, id)) {
+        res.push(indice);
+        break;
+      }
+    }
+  }
+  return res;
+}
+
+function puntuarJugadaNivel(estado, jugada, P, niv, rng) {
+  const cfg = estado.config;
+  const yo = estado.turno;
+  const otro = RIVAL[yo];
+  const sut = niv.sutilezas;
+  if (jugada.tipo === 'noIntervenir') {
+    const sd = estado.serieDeclarada;
+    if (esPasoAtras(cfg, sd.cartas)) return 0;
+    if (esParadaSinHerida(cfg, sd.cartas)) return P.puntoMuertoGanado;
+    const dano = danoPendiente(estado).dano;
+    if (dano >= estado.vida[yo]) return -1000;
+    return -dano * P.recibir;
+  }
+  const real = aplicar(estado, jugada);
+  if (real.fase === 'fin') return real.ganador === yo ? 1000 : -1000;
+  if (real.eventos.some((ev) => ev.tipo === 'golpeDoble')) return P.golpeDoble;
+  const miedo = niv.miedo || 0;
+  if (esParadaSinHerida(cfg, jugada.cartas)) return P.paradaSinHerida + miedo + (niv.gustoReparo || 0);
+  const sig = vistaImperfecta(real, otro, niv, rng);
+  if (esPasoAtras(cfg, jugada.cartas)) {
+    const cortable = sut.pasoAtras && intervenciblesSegunNivel(sig, sut).length > 0;
+    return (cortable ? P.pasoAtrasCortable : P.pasoAtrasSeguro) + miedo - (niv.pasoAtrasPen || 0);
+  }
+  const ac = cfg.ajustes.aperturaCercana;
+  const abreCerca = jugada.tipo === 'declarar' && ac.cartas.includes(cfg.cartaDe[jugada.cartas[0]]);
+  const coste = (estado.vida[yo] - real.vida[yo]) * P.recibir + (abreCerca ? ac.heridaExtraRecibida * P.recibir * 0.5 : 0);
+  const dano = danoDeSerie(estado, yo, jugada.cartas, jugada.tipo === 'declarar').dano;
+  const expuestas = intervenciblesSegunNivel(sig, sut).length;
+  const n = jugada.cartas.length;
+  // Previsión: la mejor respuesta que el rival tendría, según lo que cree que le queda.
+  let prev = 0;
+  if (niv.prevision && sig.fase === 'responder') {
+    let m = -Infinity;
+    for (const r of jugadasLegales(sig)) {
+      const v = r.tipo === 'noIntervenir' ? 0 : puntuarJugada(sig, r, PESOS_RIVAL);
+      if (v > m) m = v;
+    }
+    if (m > -Infinity) prev = -niv.prevision * m;
+  }
+  const largo = (niv.largo || 0) * n; // saber enlazar cadenas largas
+  const corto = miedo * Math.max(0, 4 - n) * 0.6; // el miedoso prefiere jugadas cortas
+  if (expuestas === 0) {
+    if (dano >= estado.vida[otro]) return 1000;
+    return dano * P.heridaSegura + 2 - coste + largo + corto + prev;
+  }
+  const extra = cfg.ajustes.roboExtraSerieLarga;
+  const netas = n - (extra.cartas && n >= extra.desde ? extra.cartas : 0);
+  return dano * P.dano - expuestas * P.exposicion - netas * P.cartas - coste + largo + corto + prev;
+}
+
 // ---- ui/datos.js ----
 // Carga de datos en el navegador. En juego.html (versión de un solo archivo) los datos y las
 // imágenes vienen incrustados en window.__DATOS_JUEGO__ y window.__IMAGENES_JUEGO__.
@@ -1931,30 +2135,236 @@ function borrarRanking() {
   guardarJSON(CLAVE_PARTIDAS, leerPartidas().filter((p) => p.favorita));
 }
 
+/**
+ * Puntos de herida dados por cada color según la crónica. Cuenta también los perdidos antes de una muerte
+ * súbita (los dos vuelven a 1), que "vida inicial - vida final" no ve. null si la partida no tiene crónica.
+ */
+function golpesDeCronica(p) {
+  if (!p.secuencia?.length || !p.vidaInicial) return null;
+  const v = { blanco: p.vidaInicial, negro: p.vidaInicial };
+  const dados = { blanco: 0, negro: 0 };
+  for (const paso of p.secuencia) {
+    if (paso.tipo === 'herida') {
+      dados[paso.atacante] += Math.max(0, v[paso.herido] - paso.vida);
+      v[paso.herido] = paso.vida;
+    } else if (paso.tipo === 'doble') {
+      const subita = paso.subita ?? /súbita/.test(paso.resultado ?? '');
+      for (const j of ['blanco', 'negro']) {
+        dados[j === 'blanco' ? 'negro' : 'blanco'] += subita ? v[j] : Math.max(0, v[j] - paso.vida[j]);
+        v[j] = paso.vida[j];
+      }
+    }
+  }
+  return dados;
+}
+
+/** Dobles tocados y muertes súbitas de una partida, según su crónica. */
+function contarDobles(p) {
+  const dobles = (p.secuencia ?? []).filter((x) => x.tipo === 'doble');
+  return { dobles: dobles.length, subitas: dobles.filter((x) => x.subita ?? /súbita/.test(x.resultado ?? '')).length };
+}
+
+/** Suma a la fila `f` una partida desde el lado `lado`. Lo que la partida no trae guardado se calcula al vuelo. */
+function sumarPartida(f, p, lado) {
+  const otro = lado === 'blanco' ? 'negro' : 'blanco';
+  f.jugadas++;
+  if (p.ganador === lado) f.ganadas++;
+  else if (p.ganador === null) f.empates++;
+  else f.perdidas++;
+  const d = p.dobles !== undefined ? p : contarDobles(p);
+  f.dobles += d.dobles;
+  f.subitas += d.subitas;
+  const golpes = p.golpes ?? golpesDeCronica(p);
+  if (golpes) {
+    f.puntosDados += golpes[lado];
+    f.puntosRecibidos += golpes[otro];
+  } else if (p.vida && p.vidaInicial) {
+    f.puntosDados += p.vidaInicial - p.vida[otro];
+    f.puntosRecibidos += p.vidaInicial - p.vida[lado];
+  }
+}
+
+const filaVacia = () => ({ jugadas: 0, ganadas: 0, empates: 0, perdidas: 0, dobles: 0, subitas: 0, puntosDados: 0, puntosRecibidos: 0 });
+
 /** Tabla por esgrimista, ordenada por victorias, luego % de victorias y luego menos derrotas. Función pura. */
 function calcularRanking(partidas) {
   const filas = new Map();
-  const fila = (nombre) => {
-    if (!filas.has(nombre)) filas.set(nombre, { nombre, jugadas: 0, ganadas: 0, empates: 0, perdidas: 0, puntosDados: 0, puntosRecibidos: 0 });
-    return filas.get(nombre);
-  };
   for (const p of partidas) {
     for (const lado of ['blanco', 'negro']) {
-      const otro = lado === 'blanco' ? 'negro' : 'blanco';
-      const f = fila(p[lado]);
-      f.jugadas++;
-      if (p.ganador === lado) f.ganadas++;
-      else if (p.ganador === null) f.empates++;
-      else f.perdidas++;
-      if (p.vida && p.vidaInicial) {
-        f.puntosDados += p.vidaInicial - p.vida[otro];
-        f.puntosRecibidos += p.vidaInicial - p.vida[lado];
-      }
+      if (!filas.has(p[lado])) filas.set(p[lado], { nombre: p[lado], ...filaVacia() });
+      sumarPartida(filas.get(p[lado]), p, lado);
     }
   }
   return [...filas.values()]
     .map((f) => ({ ...f, porcentaje: f.jugadas ? Math.round((100 * (f.ganadas + f.empates / 2)) / f.jugadas) : 0 }))
     .sort((a, b) => b.ganadas - a.ganadas || b.porcentaje - a.porcentaje || a.perdidas - b.perdidas || a.nombre.localeCompare(b.nombre));
+}
+
+/**
+ * Resultados de cada esgrimista contra cada rival concreto (por ejemplo, "Ordenador (diestro)"). Las filas del
+ * ordenador se omiten; sus rivales salen ordenados por nivel, de Bisoño a Maestro. Función pura.
+ */
+function calcularEnfrentamientos(partidas) {
+  const orden = ['bisoño', 'discípulo', 'diestro', 'preboste', 'maestro'];
+  const peso = (nombre) => {
+    const m = /^Ordenador \((.+)\)$/.exec(nombre);
+    const k = m ? orden.indexOf(m[1].toLowerCase()) : -1;
+    return k < 0 ? (m ? 50 : 99) : k; // niveles antiguos del ordenador después; personas al final
+  };
+  const filas = new Map();
+  for (const p of partidas) {
+    for (const lado of ['blanco', 'negro']) {
+      const otro = lado === 'blanco' ? 'negro' : 'blanco';
+      if (/^Ordenador/.test(p[lado])) continue;
+      const k = `${p[lado]}\u0000${p[otro]}`;
+      if (!filas.has(k)) filas.set(k, { yo: p[lado], rival: p[otro], ...filaVacia() });
+      sumarPartida(filas.get(k), p, lado);
+    }
+  }
+  return [...filas.values()]
+    .map((f) => ({ ...f, porcentaje: Math.round((100 * f.ganadas) / f.jugadas) }))
+    .sort((a, b) => a.yo.localeCompare(b.yo, 'es') || peso(a.rival) - peso(b.rival) || a.rival.localeCompare(b.rival, 'es'));
+}
+
+// ---- ui/titulo.js ----
+// Título de esgrimista según las partidas guardadas contra el ordenador. Funciones puras.
+
+/**
+ * Umbrales del título. Cada nivel del ordenador tiene una fuerza fija (NIVELES[].fuerza, escala tipo Elo). Se
+ * busca la fuerza que mejor explica los resultados (con una expectativa previa prudente) y se toma un valor
+ * pesimista (percentil 20), para que pocas partidas no den un título alto. No se sube más de 120 puntos por
+ * encima del rival más fuerte retado al menos 3 veces. Además, cada categoría se gana dominando su propio
+ * nivel (55 % en un mínimo de partidas que crece: 6, 9, 12, 15 y 18) y en orden.
+ */
+const TITULO = { previa: 0, desviacionPrevia: 200, percentil: 0.2, techoSobreRival: 120, minimoPartidas: 5, minimoPorNivel: 3, coste: [6, 9, 12, 15, 18], dominioRatio: 0.55 };
+
+/** Nivel del ordenador en un nombre de rival del historial, como "Ordenador (diestro)"; "normal" cuenta como Maestro. */
+function nivelDeNombre(nombre) {
+  const m = /^Ordenador \((.+)\)$/.exec(nombre);
+  if (!m) return null;
+  const clave = m[1].toLowerCase() === 'normal' ? 'maestro' : m[1].toLowerCase();
+  return NIVELES.find((n) => n.nombre.toLowerCase() === clave) ?? null;
+}
+
+function fuerzaDeRival(nombre) {
+  const m = /^Ordenador \((.+)\)$/.exec(nombre);
+  if (!m) return null;
+  const clave = m[1].toLowerCase();
+  const nivel = NIVELES.find((n) => n.nombre.toLowerCase() === clave);
+  if (nivel) return nivel.fuerza;
+  return FUERZA_RIVAL_ANTIGUO[clave] ?? null;
+}
+
+/**
+ * Título de `nombre` con sus partidas. Devuelve { titulo, partidas, fuerza, siguiente, falta, progreso }:
+ * `titulo` es el nombre del nivel (o null si aún no tiene) y `progreso`, lo que queda en cada categoría.
+ */
+function tituloEsgrimista(nombre, partidas) {
+  const juegos = [];
+  const marcador = new Map();
+  for (const p of partidas) {
+    for (const lado of ['blanco', 'negro']) {
+      if (p[lado] !== nombre) continue;
+      const rival = p[lado === 'blanco' ? 'negro' : 'blanco'];
+      const f = fuerzaDeRival(rival);
+      if (f === null) continue;
+      juegos.push({ f, res: p.ganador === null ? 0.5 : p.ganador === lado ? 1 : 0 });
+      const n = nivelDeNombre(rival);
+      if (!n) continue;
+      const st = marcador.get(n.id) ?? { n: 0, g: 0 };
+      st.n++;
+      if (p.ganador === lado) st.g++;
+      marcador.set(n.id, st);
+    }
+  }
+  if (juegos.length < TITULO.minimoPartidas) {
+    const resto = TITULO.minimoPartidas - juegos.length;
+    return { titulo: null, partidas: juegos.length, fuerza: null, siguiente: NIVELES[0].nombre, falta: `juega ${resto} ${resto === 1 ? 'partida más' : 'partidas más'} contra el ordenador`, progreso: null };
+  }
+  // Fuerza estimada: rejilla bayesiana con la probabilidad de ganar tipo Elo.
+  const esperado = (R, Ro) => 1 / (1 + Math.pow(10, (Ro - R) / 400));
+  const rejilla = [];
+  let max = -Infinity;
+  for (let R = -400; R <= 800; R += 5) {
+    let lp = -((R - TITULO.previa) ** 2) / (2 * TITULO.desviacionPrevia ** 2);
+    for (const g of juegos) {
+      const e = esperado(R, g.f);
+      lp += g.res * Math.log(e) + (1 - g.res) * Math.log(1 - e);
+    }
+    rejilla.push([R, lp]);
+    if (lp > max) max = lp;
+  }
+  const pesos = rejilla.map(([R, lp]) => [R, Math.exp(lp - max)]);
+  const total = pesos.reduce((a, [, w]) => a + w, 0);
+  const media = pesos.reduce((a, [R, w]) => a + R * w, 0) / total;
+  let acum = 0;
+  let pesimista = pesos[pesos.length - 1][0];
+  for (const [R, w] of pesos) {
+    acum += w / total;
+    if (acum >= TITULO.percentil) {
+      pesimista = R;
+      break;
+    }
+  }
+  const porNivel = new Map();
+  for (const g of juegos) porNivel.set(g.f, (porNivel.get(g.f) ?? 0) + 1);
+  const retados = [...porNivel].filter(([, n]) => n >= TITULO.minimoPorNivel).map(([f]) => f);
+  const techo = retados.length ? Math.max(...retados) + TITULO.techoSobreRival : -Infinity;
+  const fuerza = Math.min(pesimista, techo);
+  const alcanzados = NIVELES.filter((n) => n.fuerza <= fuerza);
+
+  // Categorías en orden: cada una se gana dominando su propio nivel.
+  const dom = NIVELES.map((n, k) => {
+    const st = marcador.get(n.id) ?? { n: 0, g: 0 };
+    return st.n >= TITULO.coste[k] && st.g / st.n >= TITULO.dominioRatio;
+  });
+  const progreso = NIVELES.map((n, k) => {
+    const st = marcador.get(n.id) ?? { n: 0, g: 0 };
+    let m = Math.max(0, TITULO.coste[k] - st.n);
+    let w = 0;
+    for (; m <= 500; m++) {
+      w = Math.max(0, Math.ceil(TITULO.dominioRatio * (st.n + m) - 1e-9) - st.g);
+      if (w <= m) break;
+    }
+    return { nombre: n.nombre, n: st.n, g: st.g, dominado: dom[k], partidas: m, victorias: w, coste: TITULO.coste[k] };
+  });
+  let enOrden = 0; // niveles dominados seguidos desde Bisoño
+  while (enOrden < dom.length && dom[enOrden]) enOrden++;
+  let falta = null;
+  const sinDominar = NIVELES[enOrden];
+  if (sinDominar) {
+    const st = marcador.get(sinDominar.id) ?? { n: 0, g: 0 };
+    const resto = TITULO.coste[enOrden] - st.n;
+    falta = resto > 0
+      ? `juega ${resto} ${resto === 1 ? 'partida más' : 'partidas más'} contra ${sinDominar.nombre}`
+      : `gana con más soltura a ${sinDominar.nombre} (llevas ${Math.round((100 * st.g) / st.n)} %, hacen falta ${Math.round(100 * TITULO.dominioRatio)} %)`;
+  }
+  // Dominar un nivel pasa a la categoría siguiente, y no más. Saltarse niveles da crédito, pero exige el coste de
+  // todos los escalones saltados más el del propio nivel, ganando contra ese nivel fuerte, y solo llega hasta una
+  // categoría por debajo del nivel vencido. Maestro exige haber dominado todos los anteriores.
+  const ultimo = NIVELES.length - 1;
+  let credito = -1;
+  NIVELES.forEach((n, j) => {
+    const saltados = dom.slice(0, j).filter((d) => !d).length;
+    if (!saltados) return;
+    const st = marcador.get(n.id) ?? { n: 0, g: 0 };
+    const exigidas = NIVELES.reduce((a, _, i) => a + (i < j && !dom[i] ? TITULO.coste[i] : 0), TITULO.coste[j]);
+    if (st.n >= exigidas && st.g / st.n >= TITULO.dominioRatio) credito = Math.max(credito, j - 1);
+  });
+  const porRecorrido = enOrden >= ultimo ? ultimo : Math.min(Math.max(enOrden, credito), ultimo - 1);
+  const porFuerza = Math.max(alcanzados.length - 1, 0);
+  const indice = Math.min(porRecorrido, porFuerza);
+  const nivel = NIVELES[indice];
+  const siguiente = NIVELES[indice + 1] ?? null;
+  if (siguiente && porFuerza < porRecorrido) falta = 'sigue ganando a rivales fuertes: tu nivel de juego aún no alcanza al suyo';
+  else if (siguiente && indice + 1 === ultimo && enOrden < ultimo) falta = `para ser ${siguiente.nombre} tienes que combatir con todos los niveles: ${falta}`;
+  return { titulo: nivel?.nombre ?? null, partidas: juegos.length, fuerza: Math.round(media), siguiente: siguiente?.nombre ?? null, falta, progreso };
+}
+
+/** Nivel del ordenador que corresponde al título de `nombre`: el suyo, o Bisoño si aún no tiene. */
+function nivelSegunTitulo(nombre, partidas) {
+  const t = nombre ? tituloEsgrimista(nombre, partidas).titulo : null;
+  return (NIVELES.find((n) => n.nombre === t) ?? NIVELES[0]).id;
 }
 
 // ---- ui/secuencia.js ----
@@ -1990,7 +2400,7 @@ function anotarPaso(sec, ev, nombreCarta) {
       sec.push({ resultado: `${NJ[ev.atacante]} hiere a ${NJ[ev.herido]}: ${pts(ev.dano)} (vida ${ev.vida})`, tipo: 'herida', atacante: ev.atacante, herido: ev.herido, dano: ev.dano, vida: ev.vida });
       break;
     case 'golpeDoble':
-      sec.push({ resultado: `Doble tocado: los dos pierden ${pts(ev.dano)}${ev.muerteSubita ? '. Muerte súbita: los dos vuelven a 1' : ''}`, tipo: 'doble', dano: ev.dano, vida: { ...ev.vida } });
+      sec.push({ resultado: `Doble tocado: los dos pierden ${pts(ev.dano)}${ev.muerteSubita ? '. Muerte súbita: los dos vuelven a 1' : ''}`, tipo: 'doble', dano: ev.dano, subita: !!ev.muerteSubita, vida: { ...ev.vida } });
       break;
     case 'pasoAtrasCumplido':
       sec.push({ resultado: `Paso atrás de ${NJ[ev.jugador]} cumplido, sin herida`, tipo: 'pasoAtras', jugador: ev.jugador });
@@ -2763,8 +3173,50 @@ function registrarResultado(e) {
     ganador: e.empate ? null : e.ganador,
     vida: { ...e.vida },
     vidaInicial: ui.config.ajustes.vidaInicial,
+    golpes: golpesDeCronica({ secuencia: ui.secuencia ?? [], vidaInicial: ui.config.ajustes.vidaInicial }) ?? undefined,
+    ...contarDobles({ secuencia: ui.secuencia ?? [] }),
     secuencia: ui.secuencia ?? [],
   });
+}
+
+/** Cabecera de columna con globo de ayuda (se ve al pasar el ratón o al pulsarla en el móvil). */
+const cabRanking = (t, ayuda) => `<th data-ayuda="${ayuda}" tabindex="0">${t}</th>`;
+const COLUMNAS_RANKING = [
+  ['P', 'Partidas jugadas'], ['G', 'Partidas ganadas'], ['Pe', 'Partidas perdidas'],
+  ['DT', 'Dobles tocados (Estocada contra Estocada), incluidas las muertes súbitas'], ['MS', 'Muertes súbitas: los dos a 0 a la vez y vuelven a 1'],
+  ['%', 'Porcentaje de partidas ganadas'], ['Tocados', 'Puntos de herida dados / recibidos'],
+].map(([t, a]) => cabRanking(t, a)).join('');
+const celdasRanking = (f) => `<td>${f.jugadas}</td><td>${f.ganadas}</td><td>${f.perdidas}</td><td>${f.dobles}</td><td>${f.subitas}</td><td>${f.porcentaje}</td><td>${f.puntosDados} / ${f.puntosRecibidos}</td>`;
+
+function htmlEnfrentamientos(partidas) {
+  const lista = calcularEnfrentamientos(partidas);
+  if (!lista.length) return '';
+  return `<details class="bloque-ranking" open><summary>Resultados contra cada rival</summary><table class="tabla-ranking enfrentamientos"><thead><tr><th>Enfrentamiento</th>${COLUMNAS_RANKING}</tr></thead><tbody>${lista
+    .map((f) => `<tr><td>${escapar(f.yo)} contra ${escapar(f.rival)}</td>${celdasRanking(f)}</tr>`)
+    .join('')}</tbody></table></details>`;
+}
+
+function htmlTitulos(partidas) {
+  const nombres = [...new Set(partidas.flatMap((p) => [p.blanco, p.negro]))].filter((n) => !/^Ordenador/.test(n));
+  const filas = nombres
+    .map((n) => ({ n, t: tituloEsgrimista(n, partidas) }))
+    .filter((x) => x.t.partidas > 0)
+    .map(({ n, t }) => {
+      const texto = t.titulo ? `<strong>${escapar(t.titulo)}</strong>` : '<em>Sin título aún</em>';
+      const nota = t.siguiente ? `Para ser ${t.siguiente}: ${t.falta}.` : 'Es el título más alto.';
+      const progreso = t.progreso
+        ? `<details class="progreso-titulo"><summary><span class="mas">Mostrar más</span><span class="menos">Mostrar menos</span></summary><ul>${t.progreso
+            .map((x) => {
+              const pct = x.n ? Math.round((100 * x.g) / x.n) : 0;
+              const resto = `te ${x.partidas === 1 ? 'queda' : 'quedan'} ${x.partidas} ${x.partidas === 1 ? 'partida' : 'partidas'}, ganando al menos ${x.victorias}`;
+              return `<li class="${x.dominado ? 'hecho' : ''}">${x.dominado ? '✓' : '·'} ${escapar(x.nombre)}: ${x.dominado ? `dominado (${x.g} de ${x.n}, ${pct} %)` : `${x.n} de ${x.coste} partidas${x.n ? `, ${pct} %` : ''}: ${resto}`}</li>`;
+            })
+            .join('')}</ul><p class="nota-titulo">Cada categoría se gana venciendo a su propio nivel con soltura, y en orden. Saltarte niveles cuesta mucho más. Mide cómo juegas, no cuántas partidas llevas.</p></details>`
+        : '';
+      return `<li><span class="titulo-nombre">${escapar(n)}</span> ${texto} <span class="titulo-detalle">(${t.partidas} ${t.partidas === 1 ? 'partida' : 'partidas'} contra el ordenador)</span><div class="titulo-falta">${escapar(nota)}</div>${progreso}</li>`;
+    });
+  if (!filas.length) return '';
+  return `<div class="bloque-titulos"><h3>Título de esgrimista</h3><ul>${filas.join('')}</ul></div>`;
 }
 
 let filtroHistorial = 'todas';
@@ -2783,11 +3235,11 @@ function abrirRanking() {
     : `<p>${filtroHistorial === 'favoritas' ? 'No tienes partidas favoritas. Pulsa la estrella ☆ de una partida para marcarla.' : 'Todavía no hay partidas terminadas.'}</p>`;
   const filas = calcularRanking(todas);
   const ranking = filas.length
-    ? `<details class="bloque-ranking"><summary>Ranking por esgrimista</summary><table class="tabla-ranking"><thead><tr><th>#</th><th>Esgrimista</th><th title="Partidas">P</th><th title="Ganadas">G</th><th title="Empates">E</th><th title="Perdidas">Pe</th><th title="Porcentaje de victorias">%</th><th title="Puntos de herida dados / recibidos">Tocados</th></tr></thead><tbody>${filas
-        .map((f, i) => `<tr><td>${i + 1}</td><td>${escapar(f.nombre)}</td><td>${f.jugadas}</td><td>${f.ganadas}</td><td>${f.empates}</td><td>${f.perdidas}</td><td>${f.porcentaje}</td><td>${f.puntosDados} / ${f.puntosRecibidos}</td></tr>`)
+    ? `<details class="bloque-ranking"><summary>Ranking por esgrimista</summary><table class="tabla-ranking"><thead><tr>${cabRanking('#', 'Posición en la clasificación')}<th>Esgrimista</th>${COLUMNAS_RANKING}</tr></thead><tbody>${filas
+        .map((f, i) => `<tr><td>${i + 1}</td><td>${escapar(f.nombre)}</td>${celdasRanking(f)}</tr>`)
         .join('')}</tbody></table></details>`
     : '';
-  $('#ranking-contenido').innerHTML = filtros + partidas + ranking;
+  $('#ranking-contenido').innerHTML = htmlTitulos(todas) + htmlEnfrentamientos(todas) + ranking + filtros + partidas;
   for (const d of document.querySelectorAll('#ranking-contenido details[data-id]')) {
     d.addEventListener('toggle', () => (d.open ? abiertas.add(d.dataset.id) : abiertas.delete(d.dataset.id)));
   }
@@ -2927,7 +3379,78 @@ function avisarCronica() {
 
 // ---------- Render ----------
 
+// ---------- Partida en curso: se guarda en este dispositivo y se retoma al recargar ----------
+
+const CLAVE_EN_CURSO = 'destreza.enCurso';
+
+function guardarEnCurso() {
+  try {
+    if (!ui.ajustesPartida || !ui.estado) return; // aún no se ha empezado ninguna partida
+    if (ui.estado.fase === 'fin') {
+      localStorage.removeItem(CLAVE_EN_CURSO); // la partida terminada ya está en el Historial
+      return;
+    }
+    const sinConfig = (e) => ({ ...e, config: undefined });
+    localStorage.setItem(CLAVE_EN_CURSO, JSON.stringify({
+      v: 1,
+      modo: ui.modo,
+      abajo: ui.abajo,
+      ladoOrdenador: ui.ladoOrdenador,
+      nivel: ui.rival?.nivel ?? null,
+      nombres: ui.nombres,
+      ajustes: ui.ajustesPartida,
+      estado: sinConfig(ui.estado),
+      pausa: ui.pausa ? { ...ui.pausa, estado: sinConfig(ui.pausa.estado) } : null,
+      registro: ui.registro,
+      secuencia: ui.secuencia ?? [],
+      manoVisible: ui.manoVisible,
+    }));
+  } catch (err) { /* sin almacenamiento: la partida sigue, solo que no se podrá retomar */ }
+}
+
+/** Si hay una partida guardada la restaura y devuelve true; si algo falla, la descarta y devuelve false. */
+function retomarEnCurso() {
+  try {
+    const g = JSON.parse(localStorage.getItem(CLAVE_EN_CURSO));
+    if (!g || g.v !== 1 || !g.estado || g.estado.fase === 'fin') return false;
+    const config = crearConfig(ui.datos.cartas, g.ajustes);
+    ui.config = config;
+    ui.ajustesPartida = g.ajustes;
+    ui.modo = g.modo;
+    ui.abajo = g.abajo;
+    ui.ladoOrdenador = g.ladoOrdenador;
+    ui.rival = crearRivalNivel(g.nivel);
+    ui.nombres = g.nombres;
+    ui.estado = { ...g.estado, config };
+    ui.pausa = g.pausa ? { ...g.pausa, oculta: false, estado: { ...g.pausa.estado, config } } : null;
+    ui.registro = [...(g.registro ?? []), { texto: 'Partida retomada tras recargar la página.', tipo: 'inicio' }];
+    ui.secuencia = g.secuencia ?? [];
+    ui.pensando = false;
+    ui.manoVisible = !!g.manoVisible;
+    limpiarSeleccion();
+    ui.mensaje = null;
+    $('#defs').innerHTML = defsSvg(config.cartas);
+    render();
+    return true;
+  } catch (err) {
+    try { localStorage.removeItem(CLAVE_EN_CURSO); } catch (e2) { /* nada */ }
+    // Deja el juego como al arrancar, por si la restauración falló a medias.
+    ui.config = crearConfig(ui.datos.cartas, ui.datos.ajustes);
+    ui.estado = nuevaPartida(ui.config);
+    ui.ajustesPartida = undefined;
+    ui.pausa = null;
+    ui.registro = [];
+    ui.modo = 'ordenador';
+    ui.abajo = 'blanco';
+    ui.ladoOrdenador = 'negro';
+    ui.nombres = undefined;
+    ui.rival = crearRivalNivel(NIVEL_POR_DEFECTO);
+    return false;
+  }
+}
+
 function render() {
+  guardarEnCurso();
   const e = ui.pausa ? ui.pausa.estado : ui.estado;
   $('#marcador').innerHTML = htmlMarcador(ui.estado);
   document.body.classList.toggle('desde-derecha', ui.abajo === 'negro');
@@ -3117,7 +3640,8 @@ function htmlPista(e) {
           clases.push('apagada');
           titulo = `${d.nombre} · ${g.estados[ci] === 'gastada' ? 'gastada' : 'bloqueada'}`;
         }
-        const primera = ci === 0 && esDeclarada ? `<span class="suma-serie">suma ${danoPendiente(e).suma}</span>` : '';
+        const dp = danoPendiente(e);
+        const primera = ci === 0 && esDeclarada ? `<span class="suma-serie" title="${dp.suma} de la serie${dp.mas1 ? ' + 1 por contestar una carta del rival' : ' (sin +1: abre el combate)'}${dp.extra ? ` + ${dp.extra} por la apertura cercana rival` : ''}">suma ${dp.dano}</span>` : '';
         // Jugando con Negro desde abajo, la mesa está girada: las series empiezan por la derecha.
         const columna = ui.abajo === 'negro' ? columnas - (col + ci) : col + ci + 1;
         const candado = sujeta ? '<span class="candado" title="A espada sujeta: no se puede contestar atacando (Estocada o Cuchillada)" aria-label="A espada sujeta">🔒</span>' : '';
@@ -3290,7 +3814,16 @@ function abrirNuevaPartida() {
   const nombres = leerNombres();
   dlg.querySelector('[name=nombre]').value = nombres.yo ?? '';
   dlg.querySelector('[name=nombre2]').value = nombres.otro ?? '';
+  marcarNivelSegunTitulo();
   dlg.showModal();
+}
+
+/** Marca el rival del nivel que corresponde al título del esgrimista (Bisoño si aún no tiene). */
+function marcarNivelSegunTitulo() {
+  const dlg = $('#dlg-nueva');
+  const nombre = dlg.querySelector('[name=nombre]').value.trim();
+  const radio = dlg.querySelector(`[name=nivel][value="${nivelSegunTitulo(nombre, leerPartidas())}"]`);
+  if (radio) radio.checked = true;
 }
 
 function empezarPartida(form) {
@@ -3298,11 +3831,11 @@ function empezarPartida(form) {
   ui.modo = f.get('modo');
   ui.abajo = f.get('color') === 'negro' ? 'negro' : 'blanco';
   ui.ladoOrdenador = RIVAL[ui.abajo];
-  ui.rival = f.get('nivel') === 'azar' ? crearRivalAzar() : crearRivalReglas();
+  ui.rival = crearRivalNivel(f.get('nivel'));
   const yo = String(f.get('nombre') ?? '').trim();
   const otro = String(f.get('nombre2') ?? '').trim();
   guardarNombres({ yo, otro });
-  const nombreRival = ui.modo === 'ordenador' ? (f.get('nivel') === 'azar' ? 'Ordenador (fácil)' : 'Ordenador (normal)') : otro || 'Invitado';
+  const nombreRival = ui.modo === 'ordenador' ? `Ordenador (${nivelPorId(f.get('nivel')).nombre.toLowerCase()})` : otro || 'Invitado';
   ui.nombres = { [ui.abajo]: yo || 'Anónimo', [RIVAL[ui.abajo]]: nombreRival };
   const ajustes = {
     ...ui.datos.ajustes,
@@ -3312,6 +3845,7 @@ function empezarPartida(form) {
     tamanoMano: f.get('mano') === 'todas' ? null : Number(f.get('mano')),
   };
   ui.config = crearConfig(ui.datos.cartas, ajustes);
+  ui.ajustesPartida = ajustes;
   ui.estado = nuevaPartida(ui.config);
   ui.registro = [{ texto: `Nueva partida. Empieza declarando ${N[ui.estado.primero]}.`, jugador: ui.estado.primero, tipo: 'inicio' }];
   ui.secuencia = [];
@@ -3369,6 +3903,7 @@ function enlazarEventos() {
   $('#detalle').addEventListener('click', (ev) => {
     if (ev.target === ev.currentTarget || ev.target.closest('[data-cerrar-detalle]')) cerrarDetalle();
   });
+  $('#form-nueva [name=nombre]').addEventListener('change', marcarNivelSegunTitulo);
   $('#form-nueva').addEventListener('submit', (ev) => {
     if (ev.submitter?.value === 'cancelar') return;
     empezarPartida(ev.target);
@@ -3384,6 +3919,17 @@ async function iniciar() {
   }
   // La pista se dibuja sobre el grabado del círculo de la Destreza.
   $('#pista').style.setProperty('--grabado', `url("${rutaImagen('dorso', 'jpg')}")`);
+  // Una cruz arriba a la derecha en cada ventana emergente (Nueva partida, Historial, Cómo jugar).
+  for (const d of document.querySelectorAll('dialog')) {
+    const x = document.createElement('button');
+    x.type = 'button';
+    x.className = 'cerrar-x';
+    x.textContent = '×';
+    x.title = 'Cerrar';
+    x.setAttribute('aria-label', 'Cerrar');
+    x.addEventListener('click', () => d.close());
+    d.prepend(x);
+  }
   enlazarEventos();
   enlazarArrastre();
   enlazarTactil();
@@ -3392,9 +3938,10 @@ async function iniciar() {
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
   ui.config = crearConfig(ui.datos.cartas, ui.datos.ajustes);
   ui.estado = nuevaPartida(ui.config);
-  ui.rival = crearRivalReglas();
+  ui.rival = crearRivalNivel(NIVEL_POR_DEFECTO);
   $('#defs').innerHTML = defsSvg(ui.config.cartas);
   $('#reglas-contenido').innerHTML = htmlComoJugar(ui.config);
+  if (retomarEnCurso()) return;
   render();
   abrirNuevaPartida();
 }
