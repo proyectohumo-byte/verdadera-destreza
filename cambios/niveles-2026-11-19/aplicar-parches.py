@@ -381,15 +381,20 @@ function tituloEsgrimista(nombre, partidas) {
       : `gana con más soltura a ${sinDominar.nombre} (llevas ${Math.round((100 * st.g) / st.n)} %, hacen falta ${Math.round(100 * TITULO.dominioRatio)} %)`;
   }
   // Dominar un nivel te pasa a la categoría siguiente (vencer a Bisoño te hace Discípulo), y no más.
-  // Si se han dominado todos los niveles en orden hasta el más alto vencido, vale la regla anterior.
-  // Si hay saltos (se venció a uno fuerte sin pasar por los demás), se da crédito por los anteriores pero
+  // Los niveles dominados en orden dan la categoría siguiente. Ir directo a un nivel fuerte, saltándose los
+  // anteriores, también da crédito, pero cuesta mucho más: por cada nivel anterior que no se ha dominado hacen
+  // falta otras `dominioPartidas` partidas contra ese nivel fuerte (con el mismo porcentaje), y el crédito llega
   // solo hasta UNA categoría por debajo del nivel vencido (cien victorias contra Preboste dan Diestro; contra
   // Diestro, Discípulo; contra Maestro, Preboste). Maestro exige haber combatido con soltura contra todos.
   const ultimo = NIVELES.length - 1;
-  let porRecorrido;
-  if (enOrden >= ultimo) porRecorrido = ultimo;
-  else if (enOrden > masAlto) porRecorrido = enOrden;
-  else porRecorrido = Math.min(Math.max(enOrden, masAlto - 1), ultimo - 1);
+  let credito = -1;
+  NIVELES.forEach((n, j) => {
+    const saltados = dom.slice(0, j).filter((d) => !d).length;
+    if (!saltados) return;
+    const st = marcador.get(n.id) ?? { n: 0, g: 0 };
+    if (st.n >= TITULO.dominioPartidas * (1 + saltados) && st.g / st.n >= TITULO.dominioRatio) credito = Math.max(credito, j - 1);
+  });
+  const porRecorrido = enOrden >= ultimo ? ultimo : Math.min(Math.max(enOrden, credito), ultimo - 1);
   const porFuerza = Math.max(alcanzados.length - 1, 0);
   const indice = Math.min(porRecorrido, porFuerza);
   const nivel = NIVELES[indice];
@@ -421,7 +426,7 @@ function htmlTitulos(partidas) {
       return `<li title="${escapar(nota)}"><span class="titulo-nombre">${escapar(n)}</span> ${texto} <span class="titulo-detalle">(${t.partidas} ${t.partidas === 1 ? 'partida' : 'partidas'} contra el ordenador)</span>${progreso}</li>`;
     });
   if (!filas.length) return '';
-  return `<div class="bloque-titulos"><h3>Título de esgrimista</h3><ul>${filas.join('')}</ul><p class="nota-titulo">Cada categoría se gana venciendo a su propio nivel con soltura, y en orden. Mide cómo juegas, no cuántas partidas llevas.</p></div>`;
+  return `<div class="bloque-titulos"><h3>Título de esgrimista</h3><ul>${filas.join('')}</ul><p class="nota-titulo">Cada categoría se gana venciendo a su propio nivel con soltura, y en orden. Saltarte niveles cuesta mucho más. Mide cómo juegas, no cuántas partidas llevas.</p></div>`;
 }
 
 /** Resultados de cada esgrimista contra cada rival concreto (por ejemplo, "Ordenador (diestro)"). */''')
