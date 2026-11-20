@@ -292,7 +292,7 @@ s = s.replace(v30, r'''/**
  * rival más fuerte al que se ha retado con cierta regularidad (3 partidas): ganar cien veces a Bisoño no
  * hace Maestro. Ni cuenta el número de partidas ni basta una racha contra un solo nivel.
  */
-const TITULO = { previa: 0, desviacionPrevia: 200, percentil: 0.2, techoSobreRival: 120, minimoPartidas: 5, minimoPorNivel: 3 };
+const TITULO = { previa: 0, desviacionPrevia: 200, percentil: 0.2, techoSobreRival: 120, minimoPartidas: 5, minimoPorNivel: 3, dominioPartidas: 6, dominioRatio: 0.55 };
 
 function fuerzaDeRival(nombre) {
   const m = /^Ordenador \((.+)\)$/.exec(nombre);
@@ -313,7 +313,9 @@ function tituloEsgrimista(nombre, partidas) {
       juegos.push({ f, res: p.ganador === null ? 0.5 : p.ganador === lado ? 1 : 0 });
     }
   }
-  if (juegos.length < TITULO.minimoPartidas) return { titulo: null, partidas: juegos.length, fuerza: null };
+  if (juegos.length < TITULO.minimoPartidas) {
+    return { titulo: null, partidas: juegos.length, fuerza: null, siguiente: NIVELES[0].nombre, falta: `juega ${TITULO.minimoPartidas - juegos.length} ${TITULO.minimoPartidas - juegos.length === 1 ? 'partida más' : 'partidas más'} contra el ordenador` };
+  }
   const esperado = (R, Ro) => 1 / (1 + Math.pow(10, (Ro - R) / 400));
   const rejilla = [];
   let max = -Infinity;
@@ -335,9 +337,39 @@ function tituloEsgrimista(nombre, partidas) {
   const techo = retados.length ? Math.max(...retados) + TITULO.techoSobreRival : -Infinity;
   const fuerza = Math.min(pesimista, techo);
   const alcanzados = NIVELES.filter((n) => n.fuerza <= fuerza);
-  const nivel = alcanzados.length ? alcanzados[alcanzados.length - 1] : null;
-  const siguiente = NIVELES.find((n) => n.fuerza > fuerza) ?? null;
-  return { titulo: nivel?.nombre ?? null, partidas: juegos.length, fuerza: Math.round(media), siguiente: siguiente?.nombre ?? null, limitadoPorRetos: techo < pesimista };
+  // Cada categoría se gana venciendo a su propio nivel con cierta soltura, y en orden: no se llega a
+  // Maestro sin haber dominado antes Bisoño, Discípulo, Diestro y Preboste.
+  const marcador = new Map();
+  for (const p of partidas) {
+    for (const lado of ['blanco', 'negro']) {
+      if (p[lado] !== nombre) continue;
+      const m = /^Ordenador \((.+)\)$/.exec(p[lado === 'blanco' ? 'negro' : 'blanco']);
+      if (!m) continue;
+      const clave = m[1].toLowerCase() === 'normal' ? 'maestro' : m[1].toLowerCase();
+      const n = NIVELES.find((x) => x.nombre.toLowerCase() === clave);
+      if (!n) continue;
+      const st = marcador.get(n.id) ?? { n: 0, g: 0 };
+      st.n++;
+      if (p.ganador === lado) st.g++;
+      marcador.set(n.id, st);
+    }
+  }
+  let dominados = 0;
+  let falta = null;
+  for (const n of NIVELES) {
+    const st = marcador.get(n.id) ?? { n: 0, g: 0 };
+    if (st.n >= TITULO.dominioPartidas && st.g / st.n >= TITULO.dominioRatio) { dominados++; continue; }
+    falta = st.n < TITULO.dominioPartidas
+      ? `juega ${TITULO.dominioPartidas - st.n} ${TITULO.dominioPartidas - st.n === 1 ? 'partida más' : 'partidas más'} contra ${n.nombre}`
+      : `gana con más soltura a ${n.nombre} (llevas ${Math.round((100 * st.g) / st.n)} %, hacen falta ${Math.round(100 * TITULO.dominioRatio)} %)`;
+    break;
+  }
+  const indice = Math.min(alcanzados.length, dominados);
+  const nivel = indice ? NIVELES[indice - 1] : null;
+  const siguiente = NIVELES[indice] ?? null;
+  if (siguiente && !falta) falta = 'sigue ganando a rivales fuertes: tu nivel de juego aún no alcanza al suyo';
+  else if (siguiente && dominados > alcanzados.length) falta = 'sigue ganando a rivales fuertes: tu nivel de juego aún no alcanza al suyo';
+  return { titulo: nivel?.nombre ?? null, partidas: juegos.length, fuerza: Math.round(media), siguiente: siguiente?.nombre ?? null, falta };
 }
 
 function htmlTitulos(partidas) {
@@ -349,13 +381,11 @@ function htmlTitulos(partidas) {
       const texto = t.titulo
         ? `<strong>${escapar(t.titulo)}</strong>`
         : `<em>Sin título aún</em>`;
-      const nota = t.titulo
-        ? `${t.siguiente ? `Siguiente: ${escapar(t.siguiente)}. ` : 'Es el título más alto. '}${t.limitadoPorRetos ? 'Para subir, reta a rivales más fuertes.' : ''}`
-        : `Necesita al menos ${TITULO.minimoPartidas} partidas contra el ordenador y ganar con regularidad.`;
+      const nota = t.siguiente ? `Para ser ${t.siguiente}: ${t.falta}.` : 'Es el título más alto.';
       return `<li title="${escapar(nota)}"><span class="titulo-nombre">${escapar(n)}</span> ${texto} <span class="titulo-detalle">(${t.partidas} ${t.partidas === 1 ? 'partida' : 'partidas'} contra el ordenador)</span></li>`;
     });
   if (!filas.length) return '';
-  return `<div class="bloque-titulos"><h3>Título de esgrimista</h3><ul>${filas.join('')}</ul><p class="nota-titulo">Mide tu fuerza según contra quién ganas, no cuántas partidas juegas.</p></div>`;
+  return `<div class="bloque-titulos"><h3>Título de esgrimista</h3><ul>${filas.join('')}</ul><p class="nota-titulo">Cada categoría se gana venciendo a su propio nivel con soltura, y en orden. Mide cómo juegas, no cuántas partidas llevas.</p></div>`;
 }
 
 /** Resultados de cada esgrimista contra cada rival concreto (por ejemplo, "Ordenador (diestro)"). */''')
