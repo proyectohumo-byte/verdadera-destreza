@@ -292,7 +292,7 @@ s = s.replace(v30, r'''/**
  * rival más fuerte al que se ha retado con cierta regularidad (3 partidas): ganar cien veces a Bisoño no
  * hace Maestro. Ni cuenta el número de partidas ni basta una racha contra un solo nivel.
  */
-const TITULO = { previa: 0, desviacionPrevia: 200, percentil: 0.2, techoSobreRival: 120, minimoPartidas: 5, minimoPorNivel: 3, dominioPartidas: 6, dominioRatio: 0.55 };
+const TITULO = { previa: 0, desviacionPrevia: 200, percentil: 0.2, techoSobreRival: 120, minimoPartidas: 5, minimoPorNivel: 3, coste: [6, 9, 12, 15, 18], dominioRatio: 0.55 };
 
 function fuerzaDeRival(nombre) {
   const m = /^Ordenador \((.+)\)$/.exec(nombre);
@@ -354,20 +354,20 @@ function tituloEsgrimista(nombre, partidas) {
       marcador.set(n.id, st);
     }
   }
-  const dom = NIVELES.map((n) => {
+  const dom = NIVELES.map((n, k) => {
     const st = marcador.get(n.id) ?? { n: 0, g: 0 };
-    return st.n >= TITULO.dominioPartidas && st.g / st.n >= TITULO.dominioRatio;
+    return st.n >= TITULO.coste[k] && st.g / st.n >= TITULO.dominioRatio;
   });
   // Cuánto queda en cada categoría: partidas que faltan y victorias necesarias para llegar al porcentaje.
   const progreso = NIVELES.map((n, k) => {
     const st = marcador.get(n.id) ?? { n: 0, g: 0 };
-    let m = Math.max(0, TITULO.dominioPartidas - st.n);
+    let m = Math.max(0, TITULO.coste[k] - st.n);
     let w = 0;
     for (; m <= 500; m++) {
       w = Math.max(0, Math.ceil(TITULO.dominioRatio * (st.n + m) - 1e-9) - st.g);
       if (w <= m) break;
     }
-    return { nombre: n.nombre, n: st.n, g: st.g, dominado: dom[k], partidas: m, victorias: w };
+    return { nombre: n.nombre, n: st.n, g: st.g, dominado: dom[k], partidas: m, victorias: w, coste: TITULO.coste[k] };
   });
   let enOrden = 0; // niveles dominados seguidos desde Bisoño
   while (enOrden < dom.length && dom[enOrden]) enOrden++;
@@ -376,23 +376,27 @@ function tituloEsgrimista(nombre, partidas) {
   const sinDominar = NIVELES[enOrden];
   if (sinDominar) {
     const st = marcador.get(sinDominar.id) ?? { n: 0, g: 0 };
-    falta = st.n < TITULO.dominioPartidas
-      ? `juega ${TITULO.dominioPartidas - st.n} ${TITULO.dominioPartidas - st.n === 1 ? 'partida más' : 'partidas más'} contra ${sinDominar.nombre}`
+    const resto = TITULO.coste[enOrden] - st.n;
+    falta = resto > 0
+      ? `juega ${resto} ${resto === 1 ? 'partida más' : 'partidas más'} contra ${sinDominar.nombre}`
       : `gana con más soltura a ${sinDominar.nombre} (llevas ${Math.round((100 * st.g) / st.n)} %, hacen falta ${Math.round(100 * TITULO.dominioRatio)} %)`;
   }
-  // Dominar un nivel te pasa a la categoría siguiente (vencer a Bisoño te hace Discípulo), y no más.
-  // Los niveles dominados en orden dan la categoría siguiente. Ir directo a un nivel fuerte, saltándose los
-  // anteriores, también da crédito, pero cuesta mucho más: por cada nivel anterior que no se ha dominado hacen
-  // falta otras `dominioPartidas` partidas contra ese nivel fuerte (con el mismo porcentaje), y el crédito llega
-  // solo hasta UNA categoría por debajo del nivel vencido (cien victorias contra Preboste dan Diestro; contra
-  // Diestro, Discípulo; contra Maestro, Preboste). Maestro exige haber combatido con soltura contra todos.
+  // Dominar un nivel te pasa a la categoría siguiente (vencer a Bisoño te hace Discípulo), y no más. Cada
+  // escalón cuesta más que el anterior (TITULO.coste: 6, 9, 12, 15 partidas con soltura). Ir directo a un nivel
+  // fuerte, saltándose los anteriores, también da crédito, pero compensa pasar por todas las categorías: se
+  // exige el coste de TODOS los escalones saltados (más el del propio nivel) y ganando contra el nivel fuerte, que
+  // es más difícil. El crédito llega solo hasta UNA categoría por debajo del nivel vencido (una cantidad
+  // grande de victorias contra Preboste da Diestro; contra Diestro, Discípulo; contra Maestro, Preboste).
+  // Maestro exige haber combatido con soltura contra todos los niveles anteriores.
   const ultimo = NIVELES.length - 1;
   let credito = -1;
   NIVELES.forEach((n, j) => {
     const saltados = dom.slice(0, j).filter((d) => !d).length;
     if (!saltados) return;
     const st = marcador.get(n.id) ?? { n: 0, g: 0 };
-    if (st.n >= TITULO.dominioPartidas * (1 + saltados) && st.g / st.n >= TITULO.dominioRatio) credito = Math.max(credito, j - 1);
+    // Se exige el coste de todos los escalones que se saltan, más el del propio nivel, ganando contra ese nivel fuerte.
+    const exigidas = NIVELES.reduce((a, _, i) => a + (i < j && !dom[i] ? TITULO.coste[i] : 0), TITULO.coste[j]);
+    if (st.n >= exigidas && st.g / st.n >= TITULO.dominioRatio) credito = Math.max(credito, j - 1);
   });
   const porRecorrido = enOrden >= ultimo ? ultimo : Math.min(Math.max(enOrden, credito), ultimo - 1);
   const porFuerza = Math.max(alcanzados.length - 1, 0);
@@ -419,7 +423,7 @@ function htmlTitulos(partidas) {
             .map((x) => {
               const pct = x.n ? Math.round((100 * x.g) / x.n) : 0;
               const resto = `te ${x.partidas === 1 ? 'queda' : 'quedan'} ${x.partidas} ${x.partidas === 1 ? 'partida' : 'partidas'}, ganando al menos ${x.victorias}`;
-              return `<li class="${x.dominado ? 'hecho' : ''}">${x.dominado ? '✓' : '·'} ${escapar(x.nombre)}: ${x.dominado ? `dominado (${x.g} de ${x.n}, ${pct} %)` : `${x.n} de ${TITULO.dominioPartidas} partidas${x.n ? `, ${pct} %` : ''}: ${resto}`}</li>`;
+              return `<li class="${x.dominado ? 'hecho' : ''}">${x.dominado ? '✓' : '·'} ${escapar(x.nombre)}: ${x.dominado ? `dominado (${x.g} de ${x.n}, ${pct} %)` : `${x.n} de ${x.coste} partidas${x.n ? `, ${pct} %` : ''}: ${resto}`}</li>`;
             })
             .join('')}</ul>`
         : '';

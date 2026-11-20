@@ -24,5 +24,9 @@ caso('100 victorias de 100 contra discípulo (solo)', mk('discípulo', 100, 100)
 caso('25 de 30 contra maestro (solo, 30 partidas)', mk('maestro', 25, 30));
 caso('20 de 24 contra preboste (solo, 24 partidas)', mk('preboste', 20, 24));
 caso('15 de 20 contra preboste (solo, 20 partidas)', mk('preboste', 15, 20));
+caso('41 de 45 contra preboste (solo; faltan 42)', mk('preboste', 41, 45));
+caso('30 de 38 contra preboste (solo; faltan 42)', mk('preboste', 30, 38));
+caso('100 de 100 contra preboste (solo)', mk('preboste', 100, 100));
+caso('en orden: 6/6, 9/9, 12/12 ->', mk('bisoño', 6, 6), mk('discípulo', 9, 9), mk('diestro', 12, 12));
 caso('4 partidas', mk('diestro', 4, 4));
 caso('10 contra bisoño, pierdo 7', mk('bisoño', 3, 10));
