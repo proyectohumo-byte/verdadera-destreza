@@ -381,10 +381,15 @@ function tituloEsgrimista(nombre, partidas) {
       : `gana con más soltura a ${sinDominar.nombre} (llevas ${Math.round((100 * st.g) / st.n)} %, hacen falta ${Math.round(100 * TITULO.dominioRatio)} %)`;
   }
   // Dominar un nivel te pasa a la categoría siguiente (vencer a Bisoño te hace Discípulo), y no más.
-  // Vencer a uno fuerte sin haber pasado por los demás da crédito por los anteriores, pero solo hasta
-  // Preboste: Maestro exige haber combatido con soltura contra todos los niveles anteriores.
+  // Si se han dominado todos los niveles en orden hasta el más alto vencido, vale la regla anterior.
+  // Si hay saltos (se venció a uno fuerte sin pasar por los demás), se da crédito por los anteriores pero
+  // solo hasta UNA categoría por debajo del nivel vencido (cien victorias contra Preboste dan Diestro; contra
+  // Diestro, Discípulo; contra Maestro, Preboste). Maestro exige haber combatido con soltura contra todos.
   const ultimo = NIVELES.length - 1;
-  const porRecorrido = enOrden >= ultimo ? ultimo : Math.min(Math.max(enOrden, masAlto + 1), ultimo - 1);
+  let porRecorrido;
+  if (enOrden >= ultimo) porRecorrido = ultimo;
+  else if (enOrden > masAlto) porRecorrido = enOrden;
+  else porRecorrido = Math.min(Math.max(enOrden, masAlto - 1), ultimo - 1);
   const porFuerza = Math.max(alcanzados.length - 1, 0);
   const indice = Math.min(porRecorrido, porFuerza);
   const nivel = NIVELES[indice];
