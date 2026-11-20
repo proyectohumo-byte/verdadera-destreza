@@ -47,6 +47,8 @@ Todo es aditivo, salvo las líneas del punto 2. No se toca el motor (`engine/`) 
    - La partida en curso guarda y restaura también su crónica (`secuencia`), para que los tocados de una partida retomada tras recargar no se pierdan.
    Pedido por el autor el 20/11/2026.
 
+10. **Columnas DT y MS en lugar de E** (`calcularRanking`, `htmlEnfrentamientos`, cabeceras de ambas tablas, `ui/app.js`): como no se puede empatar (muerte súbita), la columna "E" (empates) se quita de las dos tablas y se sustituye por **DT** (dobles tocados, Estocada contra Estocada, incluidas las muertes súbitas) y **MS** (muertes súbitas). Orden de columnas: P, G, Pe, DT, MS, %, Tocados. Igual que los tocados, se cuentan **una sola vez al terminar la partida** con `contarDobles(p)` (nueva, desde la crónica) y se guardan en la partida (`dobles`, `subitas`); las tablas solo suman lo guardado. El parche temporal `migrarGolpesPartidasAntiguas()` rellena también estos dos datos en las partidas antiguas (borrar en la versión final, ver cambio 9). El código sigue admitiendo `ganador === null` por seguridad, pero ya no se muestra. Pedido por el autor el 20/11/2026.
+
 El script `aplicar-parches.py` aplica exactamente esos cambios al `index.html` compilado, y se ha comprobado que reproduce el archivo de prueba byte a byte. Sirve como referencia de los textos exactos.
 
 ## Cómo funciona cada nivel

@@ -260,5 +260,27 @@ v25 = "  enlazarEventos();\n  enlazarArrastre();"
 assert s.count(v25) == 1
 s = s.replace(v25, "  migrarGolpesPartidasAntiguas(); // PARCHE TEMPORAL: borrar en la versión final\n" + v25)
 
+# Columnas DT (dobles tocados) y MS (muertes súbitas) en lugar de E (empates): no se puede empatar.
+def _una(viejo, nuevo, veces=1):
+    global s
+    assert s.count(viejo) == veces, (veces, s.count(viejo), viejo[:60])
+    s = s.replace(viejo, nuevo)
+_una("{ nombre, jugadas: 0, ganadas: 0, empates: 0, perdidas: 0, puntosDados: 0, puntosRecibidos: 0 }", "{ nombre, jugadas: 0, ganadas: 0, empates: 0, perdidas: 0, dobles: 0, subitas: 0, puntosDados: 0, puntosRecibidos: 0 }")
+_una("{ yo: p[lado], rival: p[otro], jugadas: 0, ganadas: 0, empates: 0, perdidas: 0, dados: 0, recibidos: 0 }", "{ yo: p[lado], rival: p[otro], jugadas: 0, ganadas: 0, empates: 0, perdidas: 0, dobles: 0, subitas: 0, dados: 0, recibidos: 0 }")
+_una("      f.jugadas++;\n", "      f.jugadas++;\n      f.dobles += p.dobles ?? 0;\n      f.subitas += p.subitas ?? 0;\n", 2)
+_una("<td>${f.ganadas}</td><td>${f.empates}</td><td>${f.perdidas}</td>", "<td>${f.ganadas}</td><td>${f.perdidas}</td><td>${f.dobles}</td><td>${f.subitas}</td>", 2)
+_una("""<th data-ayuda="Partidas empatadas" tabindex="0">E</th><th data-ayuda="Partidas perdidas" tabindex="0">Pe</th>""", """<th data-ayuda="Partidas perdidas" tabindex="0">Pe</th><th data-ayuda="Dobles tocados (Estocada contra Estocada), incluidas las muertes súbitas" tabindex="0">DT</th><th data-ayuda="Muertes súbitas: los dos a 0 a la vez y vuelven a 1" tabindex="0">MS</th>""")
+_una("${cab('E', 'Partidas empatadas')}${cab('Pe', 'Partidas perdidas')}", "${cab('Pe', 'Partidas perdidas')}${cab('DT', 'Dobles tocados (Estocada contra Estocada), incluidas las muertes súbitas')}${cab('MS', 'Muertes súbitas: los dos a 0 a la vez y vuelven a 1')}")
+# Se cuentan una sola vez, al terminar la partida, desde la crónica.
+_una("function calcularRanking(partidas) {", """/** Dobles tocados y muertes súbitas de una partida, según su crónica. */
+function contarDobles(p) {
+  const dobles = (p.secuencia ?? []).filter((x) => x.tipo === 'doble');
+  return { dobles: dobles.length, subitas: dobles.filter((x) => /súbita/.test(x.resultado ?? '')).length };
+}
+
+function calcularRanking(partidas) {""")
+_una("    golpes: golpesDeCronica({ secuencia: ui.secuencia ?? [], vidaInicial: ui.config.ajustes.vidaInicial }) ?? undefined,\n", "    golpes: golpesDeCronica({ secuencia: ui.secuencia ?? [], vidaInicial: ui.config.ajustes.vidaInicial }) ?? undefined,\n    ...contarDobles({ secuencia: ui.secuencia ?? [] }),\n")
+_una("      if (p.golpes) continue;\n      const g = golpesDeCronica(p);\n      if (g) { p.golpes = g; cambios++; }", "      if (p.dobles === undefined && p.secuencia?.length) { Object.assign(p, contarDobles(p)); cambios++; }\n      if (p.golpes) continue;\n      const g = golpesDeCronica(p);\n      if (g) { p.golpes = g; cambios++; }")
+
 open(salida, 'w', encoding='utf-8').write(s)
 print('ok', len(s))
