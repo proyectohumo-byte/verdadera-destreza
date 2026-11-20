@@ -16,5 +16,7 @@ caso('30 contra discípulo, gano 80 %', mk('discípulo', 24, 30));
 caso('20 contra bisoño, gano 12 (60 %)', mk('bisoño', 12, 20));
 caso('escalera: 95/80/55/40/25 % (20 c/u)', mk('bisoño', 19, 20), mk('discípulo', 16, 20), mk('diestro', 11, 20), mk('preboste', 8, 20), mk('maestro', 5, 20));
 caso('escalera de maestro: 100/95/85/70/55 %', mk('bisoño', 20, 20), mk('discípulo', 19, 20), mk('diestro', 17, 20), mk('preboste', 14, 20), mk('maestro', 11, 20));
+caso('100 victorias de 100 contra maestro (solo)', mk('maestro', 100, 100));
+caso('bisoño+discípulo+diestro sí, preboste no, maestro 100/100', mk('bisoño', 19, 20), mk('discípulo', 16, 20), mk('diestro', 14, 20), mk('maestro', 100, 100));
 caso('4 partidas', mk('diestro', 4, 4));
 caso('10 contra bisoño, pierdo 7', mk('bisoño', 3, 10));

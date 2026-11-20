@@ -354,21 +354,32 @@ function tituloEsgrimista(nombre, partidas) {
       marcador.set(n.id, st);
     }
   }
-  let dominados = 0;
-  let falta = null;
-  for (const n of NIVELES) {
+  const dom = NIVELES.map((n) => {
     const st = marcador.get(n.id) ?? { n: 0, g: 0 };
-    if (st.n >= TITULO.dominioPartidas && st.g / st.n >= TITULO.dominioRatio) { dominados++; continue; }
+    return st.n >= TITULO.dominioPartidas && st.g / st.n >= TITULO.dominioRatio;
+  });
+  let enOrden = 0; // niveles dominados seguidos desde Bisoño
+  while (enOrden < dom.length && dom[enOrden]) enOrden++;
+  const masAlto = dom.lastIndexOf(true); // nivel más fuerte dominado (-1 si ninguno)
+  let falta = null;
+  const sinDominar = NIVELES[enOrden];
+  if (sinDominar) {
+    const st = marcador.get(sinDominar.id) ?? { n: 0, g: 0 };
     falta = st.n < TITULO.dominioPartidas
-      ? `juega ${TITULO.dominioPartidas - st.n} ${TITULO.dominioPartidas - st.n === 1 ? 'partida más' : 'partidas más'} contra ${n.nombre}`
-      : `gana con más soltura a ${n.nombre} (llevas ${Math.round((100 * st.g) / st.n)} %, hacen falta ${Math.round(100 * TITULO.dominioRatio)} %)`;
-    break;
+      ? `juega ${TITULO.dominioPartidas - st.n} ${TITULO.dominioPartidas - st.n === 1 ? 'partida más' : 'partidas más'} contra ${sinDominar.nombre}`
+      : `gana con más soltura a ${sinDominar.nombre} (llevas ${Math.round((100 * st.g) / st.n)} %, hacen falta ${Math.round(100 * TITULO.dominioRatio)} %)`;
   }
-  const indice = Math.min(alcanzados.length, dominados);
-  const nivel = indice ? NIVELES[indice - 1] : null;
-  const siguiente = NIVELES[indice] ?? null;
-  if (siguiente && !falta) falta = 'sigue ganando a rivales fuertes: tu nivel de juego aún no alcanza al suyo';
-  else if (siguiente && dominados > alcanzados.length) falta = 'sigue ganando a rivales fuertes: tu nivel de juego aún no alcanza al suyo';
+  // Dominar un nivel te pasa a la categoría siguiente (vencer a Bisoño te hace Discípulo), y no más.
+  // Vencer a uno fuerte sin haber pasado por los demás da crédito por los anteriores, pero solo hasta
+  // Preboste: Maestro exige haber combatido con soltura contra todos los niveles anteriores.
+  const ultimo = NIVELES.length - 1;
+  const porRecorrido = enOrden >= ultimo ? ultimo : Math.min(Math.max(enOrden, masAlto + 1), ultimo - 1);
+  const porFuerza = Math.max(alcanzados.length - 1, 0);
+  const indice = Math.min(porRecorrido, porFuerza);
+  const nivel = NIVELES[indice];
+  const siguiente = NIVELES[indice + 1] ?? null;
+  if (siguiente && porFuerza < porRecorrido) falta = 'sigue ganando a rivales fuertes: tu nivel de juego aún no alcanza al suyo';
+  else if (siguiente && indice + 1 === ultimo && enOrden < ultimo) falta = `para ser ${siguiente.nombre} tienes que combatir con todos los niveles: ${falta}`;
   return { titulo: nivel?.nombre ?? null, partidas: juegos.length, fuerza: Math.round(media), siguiente: siguiente?.nombre ?? null, falta };
 }
 
