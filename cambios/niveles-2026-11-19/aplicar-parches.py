@@ -282,5 +282,97 @@ function calcularRanking(partidas) {""")
 _una("    golpes: golpesDeCronica({ secuencia: ui.secuencia ?? [], vidaInicial: ui.config.ajustes.vidaInicial }) ?? undefined,\n", "    golpes: golpesDeCronica({ secuencia: ui.secuencia ?? [], vidaInicial: ui.config.ajustes.vidaInicial }) ?? undefined,\n    ...contarDobles({ secuencia: ui.secuencia ?? [] }),\n")
 _una("      if (p.golpes) continue;\n      const g = golpesDeCronica(p);\n      if (g) { p.golpes = g; cambios++; }", "      if (p.dobles === undefined && p.secuencia?.length) { Object.assign(p, contarDobles(p)); cambios++; }\n      if (p.golpes) continue;\n      const g = golpesDeCronica(p);\n      if (g) { p.golpes = g; cambios++; }")
 
+v30 = "/** Resultados de cada esgrimista contra cada rival concreto (por ejemplo, \"Ordenador (diestro)\"). */"
+assert s.count(v30) == 1
+s = s.replace(v30, r'''/**
+ * Título del jugador según su fuerza, estimada con las partidas guardadas contra el ordenador. Cada nivel
+ * del ordenador tiene una fuerza fija (NIVELES[].fuerza, escala tipo Elo). Se busca la fuerza que mejor
+ * explica los resultados (con una expectativa previa prudente) y se toma un valor pesimista (percentil 20),
+ * de modo que pocas partidas no den un título alto. Además, no se sube más de 120 puntos por encima del
+ * rival más fuerte al que se ha retado con cierta regularidad (3 partidas): ganar cien veces a Bisoño no
+ * hace Maestro. Ni cuenta el número de partidas ni basta una racha contra un solo nivel.
+ */
+const TITULO = { previa: 0, desviacionPrevia: 200, percentil: 0.2, techoSobreRival: 120, minimoPartidas: 5, minimoPorNivel: 3 };
+
+function fuerzaDeRival(nombre) {
+  const m = /^Ordenador \((.+)\)$/.exec(nombre);
+  if (!m) return null;
+  const clave = m[1].toLowerCase();
+  const nivel = NIVELES.find((n) => n.nombre.toLowerCase() === clave);
+  if (nivel) return nivel.fuerza;
+  return FUERZA_RIVAL_ANTIGUO[clave] ?? null;
+}
+
+function tituloEsgrimista(nombre, partidas) {
+  const juegos = [];
+  for (const p of partidas) {
+    for (const lado of ['blanco', 'negro']) {
+      if (p[lado] !== nombre) continue;
+      const f = fuerzaDeRival(p[lado === 'blanco' ? 'negro' : 'blanco']);
+      if (f === null) continue;
+      juegos.push({ f, res: p.ganador === null ? 0.5 : p.ganador === lado ? 1 : 0 });
+    }
+  }
+  if (juegos.length < TITULO.minimoPartidas) return { titulo: null, partidas: juegos.length, fuerza: null };
+  const esperado = (R, Ro) => 1 / (1 + Math.pow(10, (Ro - R) / 400));
+  const rejilla = [];
+  let max = -Infinity;
+  for (let R = -400; R <= 800; R += 5) {
+    let lp = -((R - TITULO.previa) ** 2) / (2 * TITULO.desviacionPrevia ** 2);
+    for (const g of juegos) { const e = esperado(R, g.f); lp += g.res * Math.log(e) + (1 - g.res) * Math.log(1 - e); }
+    rejilla.push([R, lp]);
+    if (lp > max) max = lp;
+  }
+  const pesos = rejilla.map(([R, lp]) => [R, Math.exp(lp - max)]);
+  const total = pesos.reduce((a, [, w]) => a + w, 0);
+  const media = pesos.reduce((a, [R, w]) => a + R * w, 0) / total;
+  let acum = 0;
+  let pesimista = pesos[pesos.length - 1][0];
+  for (const [R, w] of pesos) { acum += w / total; if (acum >= TITULO.percentil) { pesimista = R; break; } }
+  const porNivel = new Map();
+  for (const g of juegos) porNivel.set(g.f, (porNivel.get(g.f) ?? 0) + 1);
+  const retados = [...porNivel].filter(([, n]) => n >= TITULO.minimoPorNivel).map(([f]) => f);
+  const techo = retados.length ? Math.max(...retados) + TITULO.techoSobreRival : -Infinity;
+  const fuerza = Math.min(pesimista, techo);
+  const alcanzados = NIVELES.filter((n) => n.fuerza <= fuerza);
+  const nivel = alcanzados.length ? alcanzados[alcanzados.length - 1] : null;
+  const siguiente = NIVELES.find((n) => n.fuerza > fuerza) ?? null;
+  return { titulo: nivel?.nombre ?? null, partidas: juegos.length, fuerza: Math.round(media), siguiente: siguiente?.nombre ?? null, limitadoPorRetos: techo < pesimista };
+}
+
+function htmlTitulos(partidas) {
+  const nombres = [...new Set(partidas.flatMap((p) => [p.blanco, p.negro]))].filter((n) => !/^Ordenador/.test(n));
+  const filas = nombres
+    .map((n) => ({ n, t: tituloEsgrimista(n, partidas) }))
+    .filter((x) => x.t.partidas > 0)
+    .map(({ n, t }) => {
+      const texto = t.titulo
+        ? `<strong>${escapar(t.titulo)}</strong>`
+        : `<em>Sin título aún</em>`;
+      const nota = t.titulo
+        ? `${t.siguiente ? `Siguiente: ${escapar(t.siguiente)}. ` : 'Es el título más alto. '}${t.limitadoPorRetos ? 'Para subir, reta a rivales más fuertes.' : ''}`
+        : `Necesita al menos ${TITULO.minimoPartidas} partidas contra el ordenador y ganar con regularidad.`;
+      return `<li title="${escapar(nota)}"><span class="titulo-nombre">${escapar(n)}</span> ${texto} <span class="titulo-detalle">(${t.partidas} ${t.partidas === 1 ? 'partida' : 'partidas'} contra el ordenador)</span></li>`;
+    });
+  if (!filas.length) return '';
+  return `<div class="bloque-titulos"><h3>Título de esgrimista</h3><ul>${filas.join('')}</ul><p class="nota-titulo">Mide tu fuerza según contra quién ganas, no cuántas partidas juegas.</p></div>`;
+}
+
+/** Resultados de cada esgrimista contra cada rival concreto (por ejemplo, "Ordenador (diestro)"). */''')
+v31 = "$('#ranking-contenido').innerHTML = htmlEnfrentamientos(todas) + ranking + filtros + partidas;"
+assert s.count(v31) == 1
+s = s.replace(v31, "$('#ranking-contenido').innerHTML = htmlTitulos(todas) + htmlEnfrentamientos(todas) + ranking + filtros + partidas;")
+v32 = ".tabla-ranking { width: 100%; border-collapse: collapse; font-size: 14px; }"
+assert s.count(v32) == 1
+s = s.replace(v32, """.bloque-titulos { margin: 4px 0 12px; padding: 8px 12px; border: 1px solid var(--tinta-suave); border-radius: 2px; background: rgba(255, 255, 255, 0.35); }
+.bloque-titulos h3 { margin: 0 0 4px; font-size: 15px; }
+.bloque-titulos ul { list-style: none; margin: 0; padding: 0; }
+.bloque-titulos li { padding: 2px 0; cursor: help; }
+.bloque-titulos .titulo-nombre { font-weight: bold; margin-right: 6px; }
+.bloque-titulos strong { color: var(--sangre); }
+.bloque-titulos .titulo-detalle, .bloque-titulos .nota-titulo { font-size: 12px; opacity: 0.75; }
+.bloque-titulos .nota-titulo { margin: 4px 0 0; font-style: italic; }
+""" + v32)
+
 open(salida, 'w', encoding='utf-8').write(s)
 print('ok', len(s))

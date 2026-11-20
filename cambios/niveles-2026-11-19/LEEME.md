@@ -49,6 +49,14 @@ Todo es aditivo, salvo las líneas del punto 2. No se toca el motor (`engine/`) 
 
 10. **Columnas DT y MS en lugar de E** (`calcularRanking`, `htmlEnfrentamientos`, cabeceras de ambas tablas, `ui/app.js`): como no se puede empatar (muerte súbita), la columna "E" (empates) se quita de las dos tablas y se sustituye por **DT** (dobles tocados, Estocada contra Estocada, incluidas las muertes súbitas) y **MS** (muertes súbitas). Orden de columnas: P, G, Pe, DT, MS, %, Tocados. Igual que los tocados, se cuentan **una sola vez al terminar la partida** con `contarDobles(p)` (nueva, desde la crónica) y se guardan en la partida (`dobles`, `subitas`); las tablas solo suman lo guardado. El parche temporal `migrarGolpesPartidasAntiguas()` rellena también estos dos datos en las partidas antiguas (borrar en la versión final, ver cambio 9). El código sigue admitiendo `ganador === null` por seguridad, pero ya no se muestra. Pedido por el autor el 20/11/2026.
 
+11. **Título de esgrimista según tu fuerza** (`tituloEsgrimista`, `htmlTitulos`, constantes `TITULO` y `fuerzaDeRival`, en `ui/app.js`; y `fuerza` en cada entrada de `NIVELES`, en `rival/niveles.js`). Bloque "Título de esgrimista" encima del Historial, uno por jugador humano. Cómo se calcula:
+   - Cada nivel del ordenador tiene una fuerza fija en escala tipo Elo, sacada de los torneos (Bisoño 0, Discípulo 100, Diestro 220, Preboste 290, Maestro 370). Las partidas guardadas contra los niveles antiguos cuentan así: "Ordenador (normal)" 360, "(fácil)" -85.
+   - Se busca la fuerza que mejor explica los resultados del jugador contra esos rivales (probabilidad de ganar tipo Elo, con una expectativa previa de 0 ± 200) y se toma un valor **pesimista (percentil 20)**, para que pocas partidas no den un título alto.
+   - **Techo**: no se sube más de 120 puntos por encima del rival más fuerte al que se ha retado con al menos 3 partidas. Así, ganar 100 veces a Bisoño no da Maestro.
+   - El título es el nivel más alto cuya fuerza se iguala; se necesitan al menos 5 partidas contra el ordenador, y si no "Sin título aún". Las partidas entre dos personas no cuentan. No hay título por encima de Maestro.
+   - No depende del número de partidas ni de ganar a un solo nivel. Comprobado con escenarios en `simulacion/titulo-escenarios.js` (100/100 contra Bisoño da Discípulo; 3/3 contra Maestro, sin título; 8/10 contra Maestro, Preboste; una escalera completa de resultados, Maestro).
+   - Es una estimación con mucha suerte de por medio (manos de 5 cartas): los umbrales (`TITULO`) y las fuerzas conviene recalibrarlos con partidas reales. Se calcula al abrir el Historial a partir de las partidas guardadas. Pedido por el autor el 20/11/2026.
+
 El script `aplicar-parches.py` aplica exactamente esos cambios al `index.html` compilado, y se ha comprobado que reproduce el archivo de prueba byte a byte. Sirve como referencia de los textos exactos.
 
 ## Cómo funciona cada nivel

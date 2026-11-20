@@ -9,17 +9,20 @@
 // Los parámetros están todos aquí, en NIVELES, para ajustarlos sin tocar nada más.
 
 const NIVELES = [
-  { id: 'bisono', nombre: 'Bisoño', frase: 'Mozo recién llegado a la sala de armas: empuña la espada con respeto, pero poco sabe de ella.',
+  { id: 'bisono', nombre: 'Bisoño', fuerza: 0, frase: 'Mozo recién llegado a la sala de armas: empuña la espada con respeto, pero poco sabe de ella.',
     K: 2, ruido: 3, despiste: 0.7, miedo: 3, memoria: 0, fidelidad: 1, sutilezas: { candado: false, reparo: false, pasoAtras: false } },
-  { id: 'discipulo', nombre: 'Discípulo', frase: 'Aprende el compás bajo la vista del maestro: atiende a la estocada que tiene delante, no a la que vendrá.',
+  { id: 'discipulo', nombre: 'Discípulo', fuerza: 100, frase: 'Aprende el compás bajo la vista del maestro: atiende a la estocada que tiene delante, no a la que vendrá.',
     K: 3, ruido: 2, despiste: 0.5, largo: 0.3, memoria: 0, fidelidad: 1, sutilezas: { candado: false, reparo: false, pasoAtras: false } },
-  { id: 'diestro', nombre: 'Diestro', frase: 'Hombre ya ducho en la ciencia de las armas: guarda memoria de tus últimas jugadas, aunque la memoria a veces le falla.',
+  { id: 'diestro', nombre: 'Diestro', fuerza: 220, frase: 'Hombre ya ducho en la ciencia de las armas: guarda memoria de tus últimas jugadas, aunque la memoria a veces le falla.',
     K: 6, ruido: 1, despiste: 0.25, largo: 1.2, memoria: 2, fidelidad: 0.75, sutilezas: { candado: true, reparo: false, pasoAtras: false } },
-  { id: 'preboste', nombre: 'Preboste', frase: 'Ayudante del maestro, con licencia para enseñar en su ausencia: lleva buena cuenta de las cartas, sin llegar a la certeza.',
+  { id: 'preboste', nombre: 'Preboste', fuerza: 290, frase: 'Ayudante del maestro, con licencia para enseñar en su ausencia: lleva buena cuenta de las cartas, sin llegar a la certeza.',
     K: 12, ruido: 0.7, despiste: 0.1, largo: 0.5, memoria: 4, fidelidad: 0.85, sutilezas: { candado: true, reparo: true, pasoAtras: false } },
-  { id: 'maestro', nombre: 'Maestro', frase: 'Examinado en el arte y respetado en la plaza: casi nada se le escapa, pero ni ve tu mano ni es infalible.',
+  { id: 'maestro', nombre: 'Maestro', fuerza: 370, frase: 'Examinado en el arte y respetado en la plaza: casi nada se le escapa, pero ni ve tu mano ni es infalible.',
     K: 0, ruido: 0.4, despiste: 0.03, prevision: 0.2, memoria: 99, fidelidad: 0.95, sutilezas: { candado: true, reparo: true, pasoAtras: true } },
 ];
+// `fuerza`: escala tipo Elo medida en torneos entre niveles (1500 partidas por pareja, 20/11/2026). Sirve
+// para dar título al jugador según contra quién gana (ver tituloEsgrimista en ui/app.js).
+const FUERZA_RIVAL_ANTIGUO = { normal: 360, fácil: -85 }; // partidas guardadas con los niveles antiguos
 const NIVEL_POR_DEFECTO = 'diestro';
 
 function nivelPorId(id) {
