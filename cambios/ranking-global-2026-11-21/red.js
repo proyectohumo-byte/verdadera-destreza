@@ -266,7 +266,7 @@ async function mostrarRed(modo) {
   if (modo === 'consentimiento') {
     cont.innerHTML = `<h2>Ranking global</h2>
       <p>¿Quieres aparecer en el ranking global del juego y ayudarme con las pruebas?</p>
-      <p class="red-aviso">Si participas, se envían: tu apodo; los datos de cada partida (nivel del rival, resultado, tocados, dobles tocados, muertes súbitas, duración y estadísticas de juego como cartas usadas y pasos atrás); qué botones y funciones del juego usas y cuándo; cuánto tiempo tienes el juego abierto; y el tipo de pantalla (ancho, táctil o no, idioma). Todo con un identificador aleatorio de este navegador, para estudiar cómo se usa el juego y mejorarlo. No se envía correo, nombre real, ubicación ni nada personal. Puedes elegir un apodo y dejar de participar cuando quieras desde el ranking.</p>
+      <p class="red-aviso">Si participas, se recogen datos de uso del juego (tus partidas, las funciones que usas, el tiempo que juegas y el tipo de pantalla) junto a tu apodo y un identificador aleatorio. Nada personal. Puedes dejar de participar cuando quieras desde el ranking.</p>
       <label class="red-campo">Apodo <input id="red-apodo" maxlength="24" value="${escapar(red.apodo ?? leerNombres().yo ?? '')}" placeholder="Anónimo"></label>
       <div class="botones"><button class="principal" data-accion="red-si">Participar</button><button class="secundario" data-accion="red-no">No, gracias</button></div>`;
   } else {
