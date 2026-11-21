@@ -19,6 +19,9 @@ una('.tabla-ranking { width: 100%; border-collapse: collapse; font-size: 14px; }
 .red-campo { display: block; margin: 8px 0; }
 .red-campo input { width: 100%; box-sizing: border-box; margin-top: 4px; padding: 6px; font: inherit; }
 .red-boton { margin: 4px 0 8px; }
+.red-estrellas { text-align: center; margin: 8px 0; }
+.red-estrella { background: none; border: 0; padding: 0 6px; font-size: 36px; line-height: 1; color: var(--sangre); cursor: pointer; }
+.red-campo textarea { width: 100%; box-sizing: border-box; margin-top: 4px; padding: 6px; font: inherit; }
 .tabla-ranking { width: 100%; border-collapse: collapse; font-size: 14px; }''')
 # 3. Código del ranking global.
 una("let filtroHistorial = 'todas';", red + "let filtroHistorial = 'todas';")
@@ -32,7 +35,7 @@ una('  ui.registro = [{ texto: `Nueva partida. Empieza declarando',
 una("$('#ranking-contenido').innerHTML = htmlTitulos(todas)", "$('#ranking-contenido').innerHTML = botonRed() + htmlTitulos(todas)")
 # 7. Acciones de los botones.
 una("      else if (a === 'ranking') abrirRanking();\n",
-    "      else if (a === 'ranking') abrirRanking();\n      else if (a.startsWith('red-')) accionRed(a);\n")
+    "      else if (a === 'ranking') abrirRanking();\n      else if (a.startsWith('red-')) accionRed(a, boton);\n")
 # 8. Al arrancar.
 una('  if (retomarEnCurso()) return;\n  render();\n  abrirNuevaPartida();\n',
     '  if (retomarEnCurso()) { iniciarRed(); return; }\n  render();\n  abrirNuevaPartida();\n  iniciarRed();\n')

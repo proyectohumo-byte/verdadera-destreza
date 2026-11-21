@@ -11,6 +11,8 @@ const CLAVE_RED = 'destreza.red'; // { id, participa: true|false|undefined, apod
 const CLAVE_RED_COLA = 'destreza.redCola'; // partidas pendientes de enviar (sin conexión)
 let redRegistrada = false; // la visita (y el apodo) ya se han enviado en esta sesión
 let redOcupada = false;
+let latidoRed = null; // temporizador del pulso
+let estrellasRed = 0; // estrellas elegidas en la ventana de opinión
 
 function leerRed() {
   const r = leerJSON(CLAVE_RED, null);
@@ -110,6 +112,17 @@ function enviarPartidaRed(e) {
   }
 }
 
+/** Mientras el juego está abierto y visible, avisa cada minuto (quién está conectado y cuánto tiempo). */
+function iniciarLatidoRed() {
+  if (latidoRed) return;
+  const latir = () => {
+    const red = leerRed();
+    if (red.participa && document.visibilityState === 'visible') llamarRed('latido', { p_cliente: red.id }).catch(() => {});
+  };
+  latidoRed = setInterval(latir, 60000);
+  document.addEventListener('visibilitychange', latir);
+}
+
 /** Al participar (una sola vez), pone en la cola las partidas contra el ordenador ya guardadas en el Historial. */
 function encolarHistoricoRed() {
   try {
@@ -153,6 +166,7 @@ function iniciarRed() {
   }
   if (red.participa === undefined) mostrarRed('consentimiento');
   else if (red.participa) {
+    iniciarLatidoRed();
     encolarHistoricoRed();
     asegurarVisitaRed(true).then(vaciarColaRed).catch(() => {});
   }
@@ -172,6 +186,14 @@ async function mostrarRed(modo) {
       <p class="red-aviso">Si participas, al terminar cada partida contra el ordenador se envían: tu apodo, el nivel del rival, si ganaste, los tocados, los dobles tocados, las muertes súbitas y lo que duró la partida, junto con un identificador aleatorio de este navegador. Nada más: ni correo ni datos personales. Puedes elegir un apodo y dejar de participar cuando quieras desde el ranking.</p>
       <label class="red-campo">Apodo <input id="red-apodo" maxlength="24" value="${escapar(red.apodo ?? leerNombres().yo ?? '')}" placeholder="Anónimo"></label>
       <div class="botones"><button class="principal" data-accion="red-si">Participar</button><button class="secundario" data-accion="red-no">No, gracias</button></div>`;
+  } else if (modo === 'opinion') {
+    estrellasRed = 0;
+    cont.innerHTML = `<h2>Tu opinión</h2>
+      <p>¿Qué te parece el juego?</p>
+      <div class="red-estrellas">${[1, 2, 3, 4, 5].map((n) => `<button type="button" class="red-estrella" data-accion="red-estrella" data-n="${n}" aria-label="${n} ${n === 1 ? 'estrella' : 'estrellas'}">☆</button>`).join('')}</div>
+      <label class="red-campo">Qué te ha gustado o qué cambiarías (opcional)<textarea id="red-texto" maxlength="500" rows="4"></textarea></label>
+      <p id="red-aviso-op" class="red-aviso"></p>
+      <div class="botones"><button class="principal" data-accion="red-enviar-opinion">Enviar</button><button class="secundario" data-accion="red-ranking">Volver</button></div>`;
   } else {
     cont.innerHTML = '<h2>Ranking global</h2><p>Cargando…</p>';
     if (!dlg.open) dlg.showModal();
@@ -188,19 +210,20 @@ async function mostrarRed(modo) {
     }
     const estado = red.participa ? `Participas como <b>${escapar(red.apodo ?? 'Anónimo')}</b>.` : 'No participas en el ranking.';
     cont.innerHTML = `<h2>Ranking global</h2>${tabla}<p class="nota-ranking">${estado}</p>
-      <div class="botones"><button class="secundario" data-accion="red-cambiar">${red.participa ? 'Cambiar apodo' : 'Participar'}</button>${red.participa ? '<button class="secundario" data-accion="red-no">Dejar de participar</button>' : ''}<button class="principal" data-accion="red-cerrar">Cerrar</button></div>`;
+      <div class="botones">${red.participa ? '<button class="secundario" data-accion="red-opinion">Dar mi opinión</button>' : ''}<button class="secundario" data-accion="red-cambiar">${red.participa ? 'Cambiar apodo' : 'Participar'}</button>${red.participa ? '<button class="secundario" data-accion="red-no">Dejar de participar</button>' : ''}<button class="principal" data-accion="red-cerrar">Cerrar</button></div>`;
     return;
   }
   if (!dlg.open) dlg.showModal();
 }
 
-function accionRed(a) {
+function accionRed(a, boton) {
   const dlg = $('#dlg-red');
   if (a === 'red-si') {
     const apodo = String($('#red-apodo')?.value ?? '').trim().slice(0, 24) || 'Anónimo';
     guardarRed({ ...leerRed(), participa: true, apodo });
     redRegistrada = false;
     dlg.close();
+    iniciarLatidoRed();
     encolarHistoricoRed();
     asegurarVisitaRed(true).then(vaciarColaRed).catch(() => {});
   } else if (a === 'red-no') {
@@ -209,6 +232,19 @@ function accionRed(a) {
     dlg.close();
   } else if (a === 'red-cambiar') mostrarRed('consentimiento');
   else if (a === 'red-ranking') mostrarRed('ranking');
-  else if (a === 'red-cerrar') dlg.close();
+  else if (a === 'red-opinion') mostrarRed('opinion');
+  else if (a === 'red-estrella') {
+    estrellasRed = Number(boton?.dataset.n) || 0;
+    document.querySelectorAll('.red-estrella').forEach((b) => (b.textContent = Number(b.dataset.n) <= estrellasRed ? '★' : '☆'));
+  } else if (a === 'red-enviar-opinion') {
+    const aviso = $('#red-aviso-op');
+    if (!estrellasRed) { aviso.textContent = 'Elige primero de 1 a 5 estrellas.'; return; }
+    aviso.textContent = 'Enviando…';
+    llamarRed('registrar_opinion', { p_cliente: leerRed().id, p_estrellas: estrellasRed, p_texto: $('#red-texto').value })
+      .then(() => {
+        $('#red-contenido').innerHTML = '<h2>¡Gracias!</h2><p>Tu opinión me ayuda mucho a mejorar el juego.</p><div class="botones"><button class="principal" data-accion="red-ranking">Volver al ranking</button></div>';
+      })
+      .catch(() => { aviso.textContent = 'No se ha podido enviar. Inténtalo de nuevo en un momento.'; });
+  } else if (a === 'red-cerrar') dlg.close();
 }
 
