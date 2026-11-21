@@ -37,4 +37,4 @@ En el panel de Supabase, **Table Editor** (`jugadores` y `partidas`) o, en **SQL
 
 - Si se retoma una partida en curso tras recargar, la duración enviada solo cuenta desde que se retomó (`ui.inicioPartida` no se guarda con la partida en curso).
 - Sin cuentas, nada impide enviar resultados falsos a mano: vale para pruebas con amigos, no para un ranking público serio.
-- Las partidas jugadas antes de aceptar participar no se envían.
+- **Histórico**: al aceptar participar (o, si ya se había aceptado, en la siguiente carga) se ponen en la cola, una sola vez (`red.historico`), las partidas contra el ordenador ya guardadas en el Historial (hasta 300), con duración 0 y versión `historico`. La fecha de esas partidas en el servidor es la del envío. Las de los niveles antiguos (normal, fácil) no se envían. Se envían una cada 10,5 s mientras el juego está abierto.
