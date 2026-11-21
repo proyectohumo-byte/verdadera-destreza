@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Panel · Verdadera Destreza</title>
+<style>
+:root { --fondo: #f4ecd8; --tinta: #2b2118; --suave: #7a6a58; --sangre: #8a1c1c; --linea: #cdbf9f; --caja: #fffaf0; color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root { --fondo: #1b1612; --tinta: #eadfc8; --suave: #a8987f; --sangre: #e07a6a; --linea: #4a3f33; --caja: #241d17; color-scheme: dark; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--fondo); color: var(--tinta); font: 15px/1.45 Georgia, "Times New Roman", serif; padding: 16px max(16px, env(safe-area-inset-left, 0px)); padding-block: 20px; }
+main { max-width: 860px; margin: 0 auto; }
+h1 { color: var(--sangre); font-size: 24px; margin: 0 0 4px; font-weight: normal; font-variant: small-caps; letter-spacing: .5px; }
+h2 { font-size: 17px; margin: 24px 0 8px; font-weight: normal; font-variant: small-caps; color: var(--sangre); }
+p { margin: 6px 0; }
+.suave { color: var(--suave); font-size: 13px; }
+form { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0; }
+input { flex: 1 1 200px; min-width: 0; padding: 9px; font: inherit; background: var(--caja); color: var(--tinta); border: 1px solid var(--linea); border-radius: 3px; }
+button { padding: 9px 16px; font: inherit; background: var(--sangre); color: #fff; border: 0; border-radius: 3px; cursor: pointer; }
+.resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin: 14px 0; }
+.dato { background: var(--caja); border: 1px solid var(--linea); border-radius: 3px; padding: 10px 12px; }
+.dato b { display: block; font-size: 24px; color: var(--sangre); font-weight: normal; }
+.tabla { overflow-x: auto; border: 1px solid var(--linea); border-radius: 3px; background: var(--caja); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--linea); white-space: nowrap; }
+th { font-weight: normal; color: var(--suave); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+td.n, th.n { text-align: right; }
+.error { color: var(--sangre); }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Panel de Verdadera Destreza</h1>
+  <p class="suave">Quién entra, cuánto juega y cuándo. Solo para el autor: necesita la contraseña.</p>
+  <form id="f">
+    <input id="clave" type="password" placeholder="Contraseña" autocomplete="current-password" required>
+    <button type="submit">Ver</button>
+  </form>
+  <p id="msg" class="suave" role="status"></p>
+  <div id="datos" hidden>
+    <div class="resumen" id="resumen"></div>
+    <h2>Jugadores</h2>
+    <div class="tabla"><table id="t-jug"></table></div>
+    <h2>Últimas partidas</h2>
+    <div class="tabla"><table id="t-par"></table></div>
+  </div>
+</main>
+<script>
+const URL_BASE = 'https://hbcalubchyzzxdjjgzzt.supabase.co';
+const CLAVE_PUBLICA = 'sb_publishable_UKYAYdRbtw8sXVn4xvMsnw_NqT5WuYq';
+const $ = (s) => document.querySelector(s);
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fecha = (x) => (x ? new Date(x).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
+async function rpc(fn, clave) {
+  const r = await fetch(`${URL_BASE}/rest/v1/rpc/${fn}`, { method: 'POST', headers: { apikey: CLAVE_PUBLICA, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_clave: clave }) });
+  if (!r.ok) { const e = new Error('http ' + r.status); e.status = r.status; throw e; }
+  return r.json();
+}
+$('#f').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const msg = $('#msg');
+  msg.className = 'suave'; msg.textContent = 'Cargando…';
+  try {
+    const [jug, par] = await Promise.all([rpc('resumen_admin', $('#clave').value), rpc('ultimas_admin', $('#clave').value)]);
+    const tp = jug.reduce((a, j) => a + Number(j.n_partidas), 0);
+    const tm = jug.reduce((a, j) => a + Number(j.minutos), 0);
+    const hoy = Date.now() - 864e5;
+    $('#resumen').innerHTML = [
+      [jug.length, 'jugadores'], [tp, 'partidas'], [Math.round(tm), 'minutos jugados'],
+      [jug.filter((j) => new Date(j.ultima_vez) > hoy).length, 'activos en 24 h'],
+    ].map(([n, t]) => `<div class="dato"><b>${n}</b>${t}</div>`).join('');
+    $('#t-jug').innerHTML = '<thead><tr><th>Apodo</th><th>Primera vez</th><th>Última vez</th><th class="n">Visitas</th><th class="n">Partidas</th><th class="n">Ganadas</th><th class="n">Minutos</th></tr></thead><tbody>' +
+      jug.map((j) => `<tr><td>${esc(j.apodo)}</td><td>${fecha(j.primera_vez)}</td><td>${fecha(j.ultima_vez)}</td><td class="n">${j.visitas}</td><td class="n">${j.n_partidas}</td><td class="n">${j.n_ganadas}</td><td class="n">${j.minutos}</td></tr>`).join('') + '</tbody>';
+    $('#t-par').innerHTML = '<thead><tr><th>Cuándo</th><th>Apodo</th><th>Rival</th><th>Resultado</th><th class="n">Tocados</th><th class="n">Minutos</th></tr></thead><tbody>' +
+      par.map((p) => `<tr><td>${fecha(p.creada)}</td><td>${esc(p.apodo)}</td><td>${esc(p.nivel)}</td><td>${p.gano ? 'Ganó' : 'Perdió'}</td><td class="n">${p.tocados_dados}-${p.tocados_recibidos}</td><td class="n">${p.duracion_s ? (p.duracion_s / 60).toFixed(1) : '·'}</td></tr>`).join('') + '</tbody>';
+    $('#datos').hidden = false;
+    msg.textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-ES') + '. Las partidas anteriores a participar salen sin duración.';
+  } catch (err) {
+    $('#datos').hidden = true;
+    msg.className = 'error';
+    msg.textContent = err.status === 400 ? 'Contraseña incorrecta, o falta crear la función en Supabase.' : 'No se ha podido cargar. Comprueba la conexión.';
+  }
+});
+</script>
+</body>
+</html>
