@@ -17,6 +17,7 @@ p { margin: 6px 0; }
 .suave { color: var(--suave); font-size: 13px; }
 form { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0; }
 input { flex: 1 1 200px; min-width: 0; padding: 9px; font: inherit; background: var(--caja); color: var(--tinta); border: 1px solid var(--linea); border-radius: 3px; }
+button.sec, .descargas button { background: var(--caja); color: var(--sangre); border: 1px solid var(--sangre); }
 button { padding: 9px 16px; font: inherit; background: var(--sangre); color: #fff; border: 0; border-radius: 3px; cursor: pointer; }
 .resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin: 14px 0; }
 .dato { background: var(--caja); border: 1px solid var(--linea); border-radius: 3px; padding: 10px 12px; }
@@ -50,10 +51,17 @@ td.n, th.n { text-align: right; }
     <div class="tabla"><table id="t-jn"></table></div>
     <h2>Actividad por día</h2>
     <div class="tabla"><table id="t-dia"></table></div>
-    <h2>Opiniones</h2>
-    <div class="tabla"><table id="t-op"></table></div>
+    <h2>Uso de funciones</h2>
+    <div class="tabla"><table id="t-uso"></table></div>
+    <h2>Cartas jugadas en las partidas terminadas</h2>
+    <div class="tabla"><table id="t-cartas"></table></div>
+    <h2>Dispositivos</h2>
+    <div class="tabla"><table id="t-disp"></table></div>
     <h2>Últimas partidas</h2>
     <div class="tabla"><table id="t-par"></table></div>
+    <h2>Descargar para estudios (CSV)</h2>
+    <p class="suave">Se abren bien en Excel, Google Sheets o NotebookLM. Hasta 50 000 filas.</p>
+    <p class="descargas"><button type="button" id="d-par">Partidas</button> <button type="button" id="d-eve">Eventos de uso</button> <button type="button" id="d-jug">Jugadores</button></p>
   </div>
   </main>
 <script>
@@ -89,17 +97,18 @@ $('#f').addEventListener('submit', async (ev) => {
   msg.className = 'suave'; msg.textContent = 'Cargando…';
   const c = $('#clave').value;
   try {
-    const [jug, niv, par, dias, ops] = await Promise.all(['resumen_admin', 'niveles_admin', 'ultimas_admin', 'dias_admin', 'opiniones_admin'].map((f) => rpc(f, c)));
+    const [jug, niv, par, dias, uso, eve] = await Promise.all(['resumen_admin', 'niveles_admin', 'ultimas_admin', 'dias_admin', 'uso_admin', 'exportar_eventos'].map((f) => rpc(f, c)));
+    const fines = eve.filter((e) => e.tipo === 'partida_fin');
+    const inicios = eve.filter((e) => e.tipo === 'partida_inicio').length;
     const ahora = Date.now();
     const suma = (k) => jug.reduce((a, j) => a + Number(j[k]), 0);
     const conect = jug.filter((j) => ahora - new Date(j.ultima_vez) < 180000).length;
     const vuelven = jug.filter((j) => Number(j.dias) > 1).length;
-    const media = ops.length ? ops.reduce((a, o) => a + o.estrellas, 0) / ops.length : null;
     $('#resumen').innerHTML = [
       [conect, 'conectados ahora'], [jug.length, 'jugadores'], [vuelven, 'han vuelto otro día'],
       [suma('n_partidas'), 'partidas'], [pct(suma('n_ganadas'), suma('n_partidas')), 'victorias de los jugadores'],
       [Math.round(suma('minutos')), 'min. jugando'], [Math.round(suma('abierto_min')), 'min. con el juego abierto'],
-      [media === null ? '·' : n1(media) + ' ★', `valoración media (${ops.length})`],
+      [inicios ? `${fines.length} de ${inicios}` : '·', 'partidas terminadas de las empezadas'],
     ].map(([n, t]) => `<div class="dato"><b>${n}</b>${t}</div>`).join('');
     tabla('#t-jug', [['Apodo'], ['Estado'], ['Primera vez'], ['Visitas', 1], ['Días', 1, 'Días distintos en que ha jugado'], ['Abierto (min)', 1, 'Tiempo con el juego abierto'], ['Jugando (min)', 1, 'Suma de la duración de sus partidas'], ['P', 1], ['G', 1], ['%', 1], ['Tocados', 1, 'Dados – recibidos'], ['DT', 1], ['MS', 1]],
       jug.map((j) => [esc(j.apodo), hace(ahora - new Date(j.ultima_vez)), fecha(j.primera_vez), j.visitas, j.dias, n1(j.abierto_min), n1(j.minutos), j.n_partidas, j.n_ganadas, pct(j.n_ganadas, j.n_partidas), `${j.dados} – ${j.recibidos}`, j.dobles, j.subitas]));
@@ -114,7 +123,30 @@ $('#f').addEventListener('submit', async (ev) => {
     tabla('#t-jn', cabNiv(['Jugador · nivel']), [...niv].sort((a, b) => a.apodo.localeCompare(b.apodo) || orden(a.nivel, b.nivel))
       .map((x) => [`${esc(x.apodo)} · ${nombreNivel(x.nivel)}`, x.n_partidas, x.n_ganadas, pct(x.n_ganadas, x.n_partidas), `${x.dados} – ${x.recibidos}`, `${n1(x.dados / x.n_partidas)} – ${n1(x.recibidos / x.n_partidas)}`, x.dobles, x.subitas, n1(x.minutos)]));
     tabla('#t-dia', [['Día'], ['Jugadores', 1], ['Partidas', 1], ['Minutos', 1]], dias.map((d) => [new Date(d.dia).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }), d.jugadores, d.n_partidas, n1(d.minutos)]));
-    tabla('#t-op', [['Cuándo'], ['Apodo'], ['★', 1], ['Comentario']], ops.map((o) => [fecha(o.creada), esc(o.apodo), '★'.repeat(o.estrellas) + '☆'.repeat(5 - o.estrellas), `<span class="coment">${esc(o.texto ?? '')}</span>`]));
+    tabla('#t-uso', [['Evento'], ['Detalle'], ['Veces', 1], ['Jugadores', 1]], uso.map((u) => [esc(u.tipo), esc(u.detalle ?? ''), u.veces, u.jugadores]));
+    const cartas = {};
+    let nCartas = 0;
+    for (const f of fines) for (const [k, v] of Object.entries(f.dato?.cartas ?? {})) { cartas[k] = (cartas[k] ?? 0) + v; nCartas += v; }
+    tabla('#t-cartas', [['Carta'], ['Veces jugada', 1], ['%', 1]], Object.entries(cartas).sort((a, b) => b[1] - a[1]).map(([k, v]) => [esc(k), v, Math.round((100 * v) / nCartas) + ' %']));
+    const disp = {};
+    for (const e of eve.filter((x) => x.tipo === 'sesion')) {
+      const d = e.dato ?? {};
+      const k = `${d.tactil ? 'Táctil' : 'Ratón'} · ${d.ancho < 600 ? 'pantalla pequeña' : d.ancho < 1000 ? 'pantalla media' : 'pantalla grande'}${d.pwa ? ' · app instalada' : ''}`;
+      (disp[k] ??= { n: 0, j: new Set() }).n++; disp[k].j.add(e.id_cliente);
+    }
+    tabla('#t-disp', [['Tipo'], ['Sesiones', 1], ['Jugadores', 1]], Object.entries(disp).sort((a, b) => b[1].n - a[1].n).map(([k, v]) => [esc(k), v.n, v.j.size]));
+    const csv = (nombre, filas) => {
+      if (!filas.length) return;
+      const cols = Object.keys(filas[0]);
+      const cel = (v) => { const t = v !== null && typeof v === 'object' ? JSON.stringify(v) : String(v ?? ''); return /[",\n;]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+      const texto = '\ufeff' + cols.join(',') + '\n' + filas.map((f) => cols.map((k) => cel(f[k])).join(',')).join('\n');
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([texto], { type: 'text/csv;charset=utf-8' }));
+      a.download = nombre; a.click();
+    };
+    $('#d-eve').onclick = () => csv('eventos.csv', eve);
+    $('#d-jug').onclick = () => csv('jugadores.csv', jug);
+    $('#d-par').onclick = async () => csv('partidas.csv', await rpc('exportar_partidas', c));
     tabla('#t-par', [['Cuándo'], ['Apodo'], ['Rival'], ['Resultado'], ['Tocados', 1], ['DT', 1], ['MS', 1], ['Min', 1]],
       par.map((p) => [fecha(p.creada), esc(p.apodo), nombreNivel(p.nivel), p.gano ? 'Ganó' : 'Perdió', `${p.tocados_dados} – ${p.tocados_recibidos}`, p.dobles, p.subitas, p.version === 'historico' ? 'hist.' : p.duracion_s ? n1(p.duracion_s / 60) : '·']));
     $('#datos').hidden = false;
