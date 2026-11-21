@@ -26,6 +26,7 @@ table { border-collapse: collapse; width: 100%; font-size: 14px; }
 th, td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--linea); white-space: nowrap; }
 th { font-weight: normal; color: var(--suave); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
 td.n, th.n { text-align: right; }
+.coment { white-space: normal; display: inline-block; min-width: 200px; max-width: 420px; }
 .error { color: var(--sangre); }
 [hidden] { display: none !important; }
 </style>
@@ -43,10 +44,18 @@ td.n, th.n { text-align: right; }
     <div class="resumen" id="resumen"></div>
     <h2>Jugadores</h2>
     <div class="tabla"><table id="t-jug"></table></div>
+    <h2>Resultados por nivel del rival</h2>
+    <div class="tabla"><table id="t-niv"></table></div>
+    <h2>Cada jugador contra cada nivel</h2>
+    <div class="tabla"><table id="t-jn"></table></div>
+    <h2>Actividad por día</h2>
+    <div class="tabla"><table id="t-dia"></table></div>
+    <h2>Opiniones</h2>
+    <div class="tabla"><table id="t-op"></table></div>
     <h2>Últimas partidas</h2>
     <div class="tabla"><table id="t-par"></table></div>
   </div>
-</main>
+  </main>
 <script>
 const URL_BASE = 'https://hbcalubchyzzxdjjgzzt.supabase.co';
 const CLAVE_PUBLICA = 'sb_publishable_UKYAYdRbtw8sXVn4xvMsnw_NqT5WuYq';
@@ -58,29 +67,62 @@ async function rpc(fn, clave) {
   if (!r.ok) { const e = new Error('http ' + r.status); e.status = r.status; throw e; }
   return r.json();
 }
+const NIVELES = { bisono: 'Bisoño', discipulo: 'Discípulo', diestro: 'Diestro', preboste: 'Preboste', maestro: 'Maestro' };
+const ORDEN = Object.keys(NIVELES);
+const nombreNivel = (n) => NIVELES[n] ?? n;
+const pct = (g, n) => (Number(n) ? Math.round((100 * Number(g)) / Number(n)) + ' %' : '·');
+const n1 = (x) => (Math.round(Number(x) * 10) / 10).toString().replace('.', ',');
+function hace(ms) {
+  const m = Math.floor(ms / 60000);
+  if (m < 3) return '● conectado ahora';
+  if (m < 60) return `hace ${m} min`;
+  if (m < 1440) return `hace ${Math.floor(m / 60)} h`;
+  return `hace ${Math.floor(m / 1440)} d`;
+}
+function tabla(id, cab, filas) {
+  $(id).innerHTML = '<thead><tr>' + cab.map(([t, num, ayuda]) => `<th class="${num ? 'n' : ''}"${ayuda ? ` title="${esc(ayuda)}"` : ''}>${t}</th>`).join('') + '</tr></thead><tbody>' +
+    (filas.length ? filas.map((f) => '<tr>' + f.map((c, i) => `<td class="${cab[i][1] ? 'n' : ''}">${c}</td>`).join('') + '</tr>').join('') : `<tr><td colspan="${cab.length}" class="suave">Sin datos todavía</td></tr>`) + '</tbody>';
+}
 $('#f').addEventListener('submit', async (ev) => {
   ev.preventDefault();
   const msg = $('#msg');
   msg.className = 'suave'; msg.textContent = 'Cargando…';
+  const c = $('#clave').value;
   try {
-    const [jug, par] = await Promise.all([rpc('resumen_admin', $('#clave').value), rpc('ultimas_admin', $('#clave').value)]);
-    const tp = jug.reduce((a, j) => a + Number(j.n_partidas), 0);
-    const tm = jug.reduce((a, j) => a + Number(j.minutos), 0);
-    const hoy = Date.now() - 864e5;
+    const [jug, niv, par, dias, ops] = await Promise.all(['resumen_admin', 'niveles_admin', 'ultimas_admin', 'dias_admin', 'opiniones_admin'].map((f) => rpc(f, c)));
+    const ahora = Date.now();
+    const suma = (k) => jug.reduce((a, j) => a + Number(j[k]), 0);
+    const conect = jug.filter((j) => ahora - new Date(j.ultima_vez) < 180000).length;
+    const vuelven = jug.filter((j) => Number(j.dias) > 1).length;
+    const media = ops.length ? ops.reduce((a, o) => a + o.estrellas, 0) / ops.length : null;
     $('#resumen').innerHTML = [
-      [jug.length, 'jugadores'], [tp, 'partidas'], [Math.round(tm), 'minutos jugados'],
-      [jug.filter((j) => new Date(j.ultima_vez) > hoy).length, 'activos en 24 h'],
+      [conect, 'conectados ahora'], [jug.length, 'jugadores'], [vuelven, 'han vuelto otro día'],
+      [suma('n_partidas'), 'partidas'], [pct(suma('n_ganadas'), suma('n_partidas')), 'victorias de los jugadores'],
+      [Math.round(suma('minutos')), 'min. jugando'], [Math.round(suma('abierto_min')), 'min. con el juego abierto'],
+      [media === null ? '·' : n1(media) + ' ★', `valoración media (${ops.length})`],
     ].map(([n, t]) => `<div class="dato"><b>${n}</b>${t}</div>`).join('');
-    $('#t-jug').innerHTML = '<thead><tr><th>Apodo</th><th>Primera vez</th><th>Última vez</th><th class="n">Visitas</th><th class="n">Partidas</th><th class="n">Ganadas</th><th class="n">Minutos</th></tr></thead><tbody>' +
-      jug.map((j) => `<tr><td>${esc(j.apodo)}</td><td>${fecha(j.primera_vez)}</td><td>${fecha(j.ultima_vez)}</td><td class="n">${j.visitas}</td><td class="n">${j.n_partidas}</td><td class="n">${j.n_ganadas}</td><td class="n">${j.minutos}</td></tr>`).join('') + '</tbody>';
-    $('#t-par').innerHTML = '<thead><tr><th>Cuándo</th><th>Apodo</th><th>Rival</th><th>Resultado</th><th class="n">Tocados</th><th class="n">Minutos</th></tr></thead><tbody>' +
-      par.map((p) => `<tr><td>${fecha(p.creada)}</td><td>${esc(p.apodo)}</td><td>${esc(p.nivel)}</td><td>${p.gano ? 'Ganó' : 'Perdió'}</td><td class="n">${p.tocados_dados}-${p.tocados_recibidos}</td><td class="n">${p.duracion_s ? (p.duracion_s / 60).toFixed(1) : '·'}</td></tr>`).join('') + '</tbody>';
+    tabla('#t-jug', [['Apodo'], ['Estado'], ['Primera vez'], ['Visitas', 1], ['Días', 1, 'Días distintos en que ha jugado'], ['Abierto (min)', 1, 'Tiempo con el juego abierto'], ['Jugando (min)', 1, 'Suma de la duración de sus partidas'], ['P', 1], ['G', 1], ['%', 1], ['Tocados', 1, 'Dados – recibidos'], ['DT', 1], ['MS', 1]],
+      jug.map((j) => [esc(j.apodo), hace(ahora - new Date(j.ultima_vez)), fecha(j.primera_vez), j.visitas, j.dias, n1(j.abierto_min), n1(j.minutos), j.n_partidas, j.n_ganadas, pct(j.n_ganadas, j.n_partidas), `${j.dados} – ${j.recibidos}`, j.dobles, j.subitas]));
+    const cabNiv = (primera) => [primera, ['P', 1], ['G', 1], ['%', 1], ['Tocados', 1, 'Dados – recibidos, en total'], ['Por partida', 1, 'Tocados dados – recibidos de media'], ['DT', 1], ['MS', 1], ['Min', 1]];
+    const global = {};
+    for (const x of niv) {
+      const g = (global[x.nivel] ??= { p: 0, g: 0, d: 0, r: 0, dt: 0, ms: 0, m: 0 });
+      g.p += Number(x.n_partidas); g.g += Number(x.n_ganadas); g.d += Number(x.dados); g.r += Number(x.recibidos); g.dt += Number(x.dobles); g.ms += Number(x.subitas); g.m += Number(x.minutos);
+    }
+    const orden = (a, b) => (ORDEN.indexOf(a) + 1 || 99) - (ORDEN.indexOf(b) + 1 || 99);
+    tabla('#t-niv', cabNiv(['Nivel']), Object.keys(global).sort(orden).map((k) => { const g = global[k]; return [nombreNivel(k), g.p, g.g, pct(g.g, g.p), `${g.d} – ${g.r}`, `${n1(g.d / g.p)} – ${n1(g.r / g.p)}`, g.dt, g.ms, n1(g.m)]; }));
+    tabla('#t-jn', cabNiv(['Jugador · nivel']), [...niv].sort((a, b) => a.apodo.localeCompare(b.apodo) || orden(a.nivel, b.nivel))
+      .map((x) => [`${esc(x.apodo)} · ${nombreNivel(x.nivel)}`, x.n_partidas, x.n_ganadas, pct(x.n_ganadas, x.n_partidas), `${x.dados} – ${x.recibidos}`, `${n1(x.dados / x.n_partidas)} – ${n1(x.recibidos / x.n_partidas)}`, x.dobles, x.subitas, n1(x.minutos)]));
+    tabla('#t-dia', [['Día'], ['Jugadores', 1], ['Partidas', 1], ['Minutos', 1]], dias.map((d) => [new Date(d.dia).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }), d.jugadores, d.n_partidas, n1(d.minutos)]));
+    tabla('#t-op', [['Cuándo'], ['Apodo'], ['★', 1], ['Comentario']], ops.map((o) => [fecha(o.creada), esc(o.apodo), '★'.repeat(o.estrellas) + '☆'.repeat(5 - o.estrellas), `<span class="coment">${esc(o.texto ?? '')}</span>`]));
+    tabla('#t-par', [['Cuándo'], ['Apodo'], ['Rival'], ['Resultado'], ['Tocados', 1], ['DT', 1], ['MS', 1], ['Min', 1]],
+      par.map((p) => [fecha(p.creada), esc(p.apodo), nombreNivel(p.nivel), p.gano ? 'Ganó' : 'Perdió', `${p.tocados_dados} – ${p.tocados_recibidos}`, p.dobles, p.subitas, p.version === 'historico' ? 'hist.' : p.duracion_s ? n1(p.duracion_s / 60) : '·']));
     $('#datos').hidden = false;
-    msg.textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-ES') + '. Las partidas anteriores a participar salen sin duración.';
+    msg.textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-ES') + '. "Conectado" = ha avisado en los últimos 3 minutos. Las partidas históricas no tienen duración ni cuentan en la actividad por día.';
   } catch (err) {
     $('#datos').hidden = true;
     msg.className = 'error';
-    msg.textContent = err.status === 400 ? 'Contraseña incorrecta, o falta crear la función en Supabase.' : 'No se ha podido cargar. Comprueba la conexión.';
+    msg.textContent = err.status === 400 ? 'Contraseña incorrecta, o falta ejecutar la actualización en Supabase.' : 'No se ha podido cargar. Comprueba la conexión.';
   }
 });
 </script>
