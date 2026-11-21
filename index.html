@@ -3344,10 +3344,44 @@ function enviarPartidaRed(e) {
       p_duracion: Math.min(Math.max(dur, 0), 14400),
       p_version: RED.version,
     });
-    guardarJSON(CLAVE_RED_COLA, cola.slice(-20));
+    guardarJSON(CLAVE_RED_COLA, cola.slice(-300));
     vaciarColaRed();
   } catch (err) {
     /* el ranking global nunca debe romper el juego */
+  }
+}
+
+/** Al participar (una sola vez), pone en la cola las partidas contra el ordenador ya guardadas en el Historial. */
+function encolarHistoricoRed() {
+  try {
+    const red = leerRed();
+    if (!red.participa || red.historico) return;
+    const cola = leerJSON(CLAVE_RED_COLA, []);
+    const esOrd = (n) => /^Ordenador \(/.test(n ?? '');
+    for (const p of leerPartidas()) {
+      const lado = esOrd(p.negro) ? 'blanco' : esOrd(p.blanco) ? 'negro' : null;
+      if (!lado) continue;
+      const otro = lado === 'blanco' ? 'negro' : 'blanco';
+      const m = /^Ordenador \((.+)\)$/.exec(p[otro]);
+      const nivel = m && NIVELES.find((n) => n.nombre.toLowerCase() === m[1]);
+      if (!nivel) continue; // niveles antiguos (normal, fácil): no se envían
+      const g = p.golpes ?? { blanco: 0, negro: 0 };
+      cola.push({
+        p_cliente: red.id,
+        p_nivel: nivel.id,
+        p_gano: p.ganador === lado,
+        p_dados: Math.min(g[lado] ?? 0, 200),
+        p_recibidos: Math.min(g[otro] ?? 0, 200),
+        p_dobles: Math.min(p.dobles ?? 0, 100),
+        p_subitas: Math.min(p.subitas ?? 0, 50),
+        p_duracion: 0,
+        p_version: 'historico',
+      });
+    }
+    guardarJSON(CLAVE_RED_COLA, cola.slice(-300));
+    guardarRed({ ...red, historico: true });
+  } catch (err) {
+    /* sin almacenamiento: no se envía el histórico */
   }
 }
 
@@ -3359,7 +3393,10 @@ function iniciarRed() {
     guardarRed(red);
   }
   if (red.participa === undefined) mostrarRed('consentimiento');
-  else if (red.participa) asegurarVisitaRed(true).then(vaciarColaRed).catch(() => {});
+  else if (red.participa) {
+    encolarHistoricoRed();
+    asegurarVisitaRed(true).then(vaciarColaRed).catch(() => {});
+  }
 }
 
 function botonRed() {
@@ -3405,6 +3442,7 @@ function accionRed(a) {
     guardarRed({ ...leerRed(), participa: true, apodo });
     redRegistrada = false;
     dlg.close();
+    encolarHistoricoRed();
     asegurarVisitaRed(true).then(vaciarColaRed).catch(() => {});
   } else if (a === 'red-no') {
     guardarRed({ ...leerRed(), participa: false });
