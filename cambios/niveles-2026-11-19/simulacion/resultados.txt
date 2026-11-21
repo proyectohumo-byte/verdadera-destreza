@@ -1,0 +1,20 @@
+Victorias (%) de la FILA contra la COLUMNA, 1000 partidas por pareja (colores alternados)
+
+            bisono    discipulo diestro   preboste  maestro   
+bisono         -       26%       14%       10%        7%      
+discipulo    73%         -       31%       24%       16%      
+diestro      84%       68%         -       40%       32%      
+preboste     91%       76%       59%         -       41%      
+maestro      94%       83%       71%       58%         -      
+
+Vecinos (cada nivel vs el anterior):
+discipulo gana a bisono 72.8%
+diestro gana a discipulo 67.9%
+preboste gana a diestro 58.8%
+maestro gana a preboste 58.2%
+Maestro vs Reglas fijas (el Normal de antes): 48.0%
+17s
+discipulo  gana a bisono     73.5% (mano completa, pasos medios 53)
+diestro    gana a discipulo  69.7% (mano completa, pasos medios 81)
+preboste   gana a diestro    71.5% (mano completa, pasos medios 123)
+maestro    gana a preboste   76.5% (mano completa, pasos medios 210)

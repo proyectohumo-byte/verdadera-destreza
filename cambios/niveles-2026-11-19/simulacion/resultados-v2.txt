@@ -1,0 +1,10 @@
+discipulo gana a bisono 63.8%
+diestro gana a discipulo 66.7%
+preboste gana a diestro 60.1%
+maestro gana a preboste 60.9%
+bisono vs azar puro 61.8%
+bisono vs vieja 9.4%
+discipulo vs vieja 16.7%
+diestro vs vieja 26.5%
+preboste vs vieja 35.7%
+maestro vs vieja 47.9%

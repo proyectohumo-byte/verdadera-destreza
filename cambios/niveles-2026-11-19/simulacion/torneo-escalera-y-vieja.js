@@ -1,0 +1,10 @@
+const { cargar } = require('./harness.js');
+const { duelo } = require('./sim.js');
+const { M, datos } = cargar('nuevo.html');
+const n = Number(process.argv[2]||500);
+const ids=['bisono','discipulo','diestro','preboste','maestro'];
+const mk=(id)=>()=> id==='vieja'?M.crearRivalReglas():id==='azar'?M.crearRivalAzar():M.crearRivalNivel(id);
+const p=(a,b)=>(duelo(M,datos,mk(a),mk(b),n,1000).pctA*100).toFixed(1);
+for(let i=1;i<ids.length;i++) console.log(ids[i],'gana a',ids[i-1],p(ids[i],ids[i-1])+'%');
+console.log('bisono vs azar puro',p('bisono','azar')+'%');
+for(const id of ids) console.log(id,'vs vieja',p(id,'vieja')+'%');
