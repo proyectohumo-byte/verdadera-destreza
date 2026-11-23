@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1f1711">
+  <meta name="robots" content="noindex">
+  <title>Panel del autor</title>
+  <link rel="icon" href="img/icono-192.png">
+  <style>
+    :root { --papel: #efe5cf; --papel-claro: #f7f0df; --tinta: #2a1f16; --tinta-suave: #6e5c46; --sangre: #7d1e1a; --oro: #a77e2c; --verde: #3d6b3a; --linea: #2a1f1626; --serif: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--papel); color: var(--tinta); font: 16px/1.45 var(--serif); }
+    header { background: #2a1f16; color: #efe5cf; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    header h1 { margin: 0; font-weight: normal; font-variant: small-caps; letter-spacing: 1px; font-size: 22px; color: #e2b84f; }
+    main { max-width: 980px; margin: 0 auto; padding: 16px; }
+    h2 { font-weight: normal; font-variant: small-caps; color: var(--sangre); border-bottom: 1px solid var(--oro); margin: 26px 0 10px; font-size: 21px; }
+    button { font: inherit; font-size: 15px; padding: 7px 14px; border-radius: 3px; border: 1px solid var(--tinta-suave); background: var(--papel-claro); color: var(--tinta); cursor: pointer; }
+    button.principal { background: var(--sangre); color: #fff; border-color: var(--sangre); }
+    header button { background: transparent; color: #efe5cf; border-color: #efe5cf88; }
+    .caja { background: var(--papel-claro); border: 1px solid var(--linea); border-radius: 6px; padding: 16px; }
+    .entrar { max-width: 420px; margin: 40px auto; }
+    .entrar input { width: 100%; font: inherit; padding: 9px 10px; margin: 8px 0 12px; border: 1px solid var(--tinta-suave); border-radius: 3px; background: #fffdf7; }
+    .nota { color: var(--tinta-suave); font-size: 14px; }
+    .error { color: var(--sangre); }
+    .cifras { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+    .cifra { background: var(--papel-claro); border: 1px solid var(--linea); border-radius: 6px; padding: 12px; }
+    .cifra b { display: block; font-size: 30px; color: var(--sangre); line-height: 1.1; }
+    .cifra span { font-size: 13px; color: var(--tinta-suave); }
+    .barras { display: flex; align-items: flex-end; gap: 2px; height: 160px; padding: 6px 0 0; border-bottom: 1px solid var(--tinta-suave); }
+    .barra { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; }
+    .barra i { display: block; width: 100%; background: var(--sangre); border-radius: 2px 2px 0 0; min-height: 2px; }
+    .barra small { font-size: 10px; color: var(--tinta-suave); }
+    .ejes { display: flex; justify-content: space-between; font-size: 12px; color: var(--tinta-suave); margin-top: 4px; }
+    .tabla { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; background: var(--papel-claro); }
+    th, td { padding: 7px 8px; border-bottom: 1px solid var(--linea); text-align: left; white-space: nowrap; }
+    th { font-weight: normal; font-variant: small-caps; color: var(--sangre); }
+    td.num, th.num { text-align: right; }
+    .linea-nivel { display: grid; grid-template-columns: 90px 1fr 90px; gap: 8px; align-items: center; margin: 6px 0; font-size: 14px; }
+    .pista { height: 14px; background: #2a1f1614; border-radius: 3px; overflow: hidden; }
+    .pista i { display: block; height: 100%; background: var(--verde); }
+    .ok { color: var(--verde); } .ko { color: var(--sangre); }
+    @media (max-width: 560px) { main { padding: 12px; } .cifra b { font-size: 24px; } .linea-nivel { grid-template-columns: 76px 1fr 76px; } }
+  </style>
+</head>
+<body>
+  <header><h1>Panel del autor</h1><div id="acciones"></div></header>
+  <main id="contenido"><p class="nota">Cargando…</p></main>
+  <script>
+    // Panel del autor de Verdadera Destreza: datos del ranking global (Supabase). Solo entra el correo autorizado en la
+    // tabla "autores" (servidor/panel-autor.sql), con un enlace que llega a ese correo.
+    const SB = { url: 'https://hbcalubchyzzxdjjgzzt.supabase.co', clave: 'sb_publishable_UKYAYdRbtw8sXVn4xvMsnw_NqT5WuYq' };
+    const CLAVE = 'destreza.autor';
+    const NIVELES = ['Bisoño', 'Discípulo', 'Diestro', 'Preboste', 'Maestro'];
+    const NIVEL_ID = { bisono: 'Bisoño', discipulo: 'Discípulo', diestro: 'Diestro', preboste: 'Preboste', maestro: 'Maestro' };
+    const ACCIONES = {
+      nueva: 'Nueva partida', reglas: 'Cómo jugar', ranking: 'Historial', confirmar: 'Jugar una serie (✓)', pasar: 'No intervenir',
+      continuar: 'Continuar tras un aviso', cronica: 'Crónica', 'ver-mano': 'Ver la mano', favorita: 'Marcar favorita', 'filtro-historial': 'Filtrar historial',
+      'borrar-ranking': 'Borrar historial', 'borrar-partida': 'Borrar una partida', 'cerrar-reglas': 'Cerrar Cómo jugar', 'cerrar-ranking': 'Cerrar Historial',
+      'red-ranking': 'Ranking global', 'red-si': 'Acepta participar', 'red-no': 'No participa', 'red-cambiar': 'Cambiar apodo', 'red-borrar': 'Borrar sus datos',
+      'red-cerrar': 'Cerrar ranking global', idioma: 'Cambiar idioma', deshacer: 'Deshacer', limpiar: 'Limpiar selección',
+    };
+    const $ = (s) => document.querySelector(s);
+    const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    const leer = () => { try { return JSON.parse(localStorage.getItem(CLAVE)) || null; } catch (e) { return null; } };
+    const guardar = (s) => { try { s ? localStorage.setItem(CLAVE, JSON.stringify(s)) : localStorage.removeItem(CLAVE); } catch (e) { /* nada */ } };
+
+    function haceCuanto(fecha) {
+      const s = (Date.now() - new Date(fecha)) / 1000;
+      if (s < 120) return 'ahora';
+      if (s < 3600) return `hace ${Math.round(s / 60)} min`;
+      if (s < 86400) return `hace ${Math.round(s / 3600)} h`;
+      const d = Math.round(s / 86400);
+      return d === 1 ? 'ayer' : `hace ${d} días`;
+    }
+    const fechaCorta = (f) => new Date(f).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+    const horaCorta = (f) => new Date(f).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+    async function pedirEnlace(ev) {
+      ev.preventDefault();
+      const email = $('#correo').value.trim();
+      if (!email) return;
+      $('#estado').textContent = 'Enviando…';
+      try {
+        const destino = location.origin + location.pathname;
+        const r = await fetch(`${SB.url}/auth/v1/otp?redirect_to=${encodeURIComponent(destino)}`, {
+          method: 'POST', headers: { apikey: SB.clave, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, create_user: true }),
+        });
+        $('#estado').textContent = r.ok
+          ? 'Listo: mira tu correo (también el correo no deseado) y pulsa el enlace desde este mismo móvil.'
+          : r.status === 429 ? 'Has pedido varios enlaces seguidos. Espera unos minutos y vuelve a intentarlo.' : 'No se ha podido enviar el enlace. Inténtalo de nuevo en un momento.';
+      } catch (e) {
+        $('#estado').textContent = 'Sin conexión. Inténtalo de nuevo.';
+      }
+    }
+
+    function pantallaEntrar(aviso) {
+      $('#acciones').innerHTML = '';
+      $('#contenido').innerHTML = `<form class="caja entrar" id="form-entrar">
+        <h2 style="margin-top:0">Entrar</h2>
+        <p>Escribe tu correo y te llegará un enlace para entrar. No hay contraseña.</p>
+        ${aviso ? `<p class="error">${esc(aviso)}</p>` : ''}
+        <input id="correo" type="email" autocomplete="email" placeholder="tu correo" required>
+        <button class="principal">Enviarme el enlace</button>
+        <p class="nota" id="estado"></p>
+      </form>`;
+      $('#form-entrar').addEventListener('submit', pedirEnlace);
+    }
+
+    /** Recoge la sesión que deja el enlace del correo en la dirección (#access_token=...). */
+    function sesionDelEnlace() {
+      if (!location.hash.includes('access_token') && !location.hash.includes('error')) return null;
+      const p = new URLSearchParams(location.hash.slice(1));
+      history.replaceState(null, '', location.pathname);
+      if (p.get('error')) return { error: p.get('error_description') || 'El enlace no es válido o ha caducado.' };
+      const s = { acceso: p.get('access_token'), refresco: p.get('refresh_token'), expira: Date.now() + Number(p.get('expires_in') || 3600) * 1000 };
+      guardar(s);
+      return s;
+    }
+
+    async function sesionValida() {
+      let s = leer();
+      if (!s?.acceso) return null;
+      if (s.expira - Date.now() < 60000) {
+        const r = await fetch(`${SB.url}/auth/v1/token?grant_type=refresh_token`, {
+          method: 'POST', headers: { apikey: SB.clave, 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: s.refresco }),
+        });
+        if (!r.ok) { guardar(null); return null; }
+        const d = await r.json();
+        s = { acceso: d.access_token, refresco: d.refresh_token, expira: Date.now() + (d.expires_in || 3600) * 1000 };
+        guardar(s);
+      }
+      return s;
+    }
+
+    async function cargar() {
+      const enlace = sesionDelEnlace();
+      if (enlace?.error) return pantallaEntrar(enlace.error);
+      let s;
+      try { s = await sesionValida(); } catch (e) { return pantallaEntrar('Sin conexión. Inténtalo de nuevo.'); }
+      if (!s) return pantallaEntrar();
+      $('#acciones').innerHTML = '<button id="actualizar">Actualizar</button> <button id="salir">Salir</button>';
+      $('#actualizar').onclick = cargar;
+      $('#salir').onclick = () => { guardar(null); pantallaEntrar(); };
+      $('#contenido').innerHTML = '<p class="nota">Cargando…</p>';
+      let r;
+      try {
+        r = await fetch(`${SB.url}/rest/v1/rpc/panel_autor`, { method: 'POST', headers: { apikey: SB.clave, Authorization: `Bearer ${s.acceso}`, 'Content-Type': 'application/json' }, body: '{}' });
+      } catch (e) {
+        $('#contenido').innerHTML = '<p class="error">Sin conexión. Pulsa Actualizar cuando vuelvas a tener.</p>';
+        return;
+      }
+      if (r.status === 401) { guardar(null); return pantallaEntrar('La sesión ha caducado: vuelve a pedir el enlace.'); }
+      if (r.status === 403) { guardar(null); return pantallaEntrar('Ese correo no tiene acceso a este panel.'); }
+      if (!r.ok) { $('#contenido').innerHTML = '<p class="error">No se han podido cargar los datos. Pulsa Actualizar.</p>'; return; }
+      pintar(await r.json());
+    }
+
+    function pintar(d) {
+      const R = d.resumen;
+      const cifra = (n, t) => `<div class="cifra"><b>${n}</b><span>${t}</span></div>`;
+      // Partidas por día: los últimos 30 días, también los que no hubo ninguna.
+      const porDia = new Map(d.por_dia.map((x) => [x.dia, x]));
+      const dias = Array.from({ length: 30 }, (_, i) => { const f = new Date(); f.setDate(f.getDate() - 29 + i); return f.toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' }); });
+      const max = Math.max(1, ...d.por_dia.map((x) => x.partidas));
+      const barras = dias.map((dia) => { const x = porDia.get(dia); const n = x?.partidas ?? 0; return `<div class="barra" title="${fechaCorta(dia)}: ${n} partidas, ${x?.jugadores ?? 0} jugadores">${n ? `<small>${n}</small>` : ''}<i style="height:${Math.round((130 * n) / max)}px"></i></div>`; }).join('');
+      const jugadores = d.jugadores.map((j) => `<tr><td>${esc(j.apodo)}</td><td>${esc(NIVELES[j.titulo] ?? '—')}</td><td>${haceCuanto(j.ultima_vez)}</td><td class="num">${j.partidas}</td><td class="num">${j.partidas ? Math.round((100 * j.ganadas) / j.partidas) : 0} %</td><td class="num">${j.minutos}</td><td class="num">${j.visitas}</td><td>${fechaCorta(j.primera_vez)}</td></tr>`).join('');
+      const niveles = d.por_nivel.map((n) => `<div class="linea-nivel"><span>${NIVEL_ID[n.nivel] ?? esc(n.nivel)}</span><div class="pista" title="Los jugadores ganan el ${Math.round((100 * n.ganadas) / n.partidas)} %"><i style="width:${(100 * n.ganadas) / n.partidas}%"></i></div><span>${n.partidas} · ${Math.round((100 * n.ganadas) / n.partidas)} %</span></div>`).join('') || '<p class="nota">Aún no hay partidas.</p>';
+      const uso = d.uso.map((u) => `<tr><td>${esc(ACCIONES[u.accion] ?? u.accion)}</td><td class="num">${u.veces}</td><td class="num">${u.jugadores}</td></tr>`).join('');
+      const disp = d.dispositivos;
+      const ultimas = d.ultimas.map((p) => `<tr><td>${horaCorta(p.creada)}</td><td>${esc(p.apodo)}</td><td>${NIVEL_ID[p.nivel] ?? esc(p.nivel)}</td><td class="${p.gano ? 'ok' : 'ko'}">${p.gano ? 'Gana' : 'Pierde'}</td><td class="num">${p.dados} / ${p.recibidos}</td><td class="num">${Math.round(p.duracion / 60)} min</td></tr>`).join('');
+      $('#contenido').innerHTML = `
+        <div class="cifras">
+          ${cifra(R.conectados, 'jugando ahora')}${cifra(R.jugadores_hoy, 'jugadores hoy')}${cifra(R.jugadores_7d, 'jugadores en 7 días')}${cifra(R.jugadores, 'jugadores en total')}
+          ${cifra(R.partidas_hoy, 'partidas hoy')}${cifra(R.partidas_7d, 'partidas en 7 días')}${cifra(R.partidas, 'partidas en total')}${cifra(R.minutos, 'minutos con el juego abierto')}
+        </div>
+        <h2>Partidas por día (último mes)</h2>
+        <div class="caja"><div class="barras">${barras}</div><div class="ejes"><span>${fechaCorta(dias[0])}</span><span>hoy</span></div></div>
+        <h2>Jugadores</h2>
+        <div class="tabla"><table><thead><tr><th>Apodo</th><th>Título</th><th>Última vez</th><th class="num">Partidas</th><th class="num">Gana</th><th class="num">Minutos</th><th class="num">Visitas</th><th>Desde</th></tr></thead><tbody>${jugadores || '<tr><td colspan="8">Aún no hay jugadores.</td></tr>'}</tbody></table></div>
+        <h2>Partidas contra cada nivel</h2>
+        <div class="caja"><p class="nota" style="margin-top:0">La barra verde es la parte que ganan los jugadores.</p>${niveles}</div>
+        <h2>Últimas partidas</h2>
+        <div class="tabla"><table><thead><tr><th>Cuándo</th><th>Apodo</th><th>Rival</th><th>Resultado</th><th class="num">Tocados</th><th class="num">Duración</th></tr></thead><tbody>${ultimas || '<tr><td colspan="6">Aún no hay partidas.</td></tr>'}</tbody></table></div>
+        <h2>Qué se usa del juego</h2>
+        <div class="tabla"><table><thead><tr><th>Botón</th><th class="num">Veces</th><th class="num">Jugadores</th></tr></thead><tbody>${uso || '<tr><td colspan="3">Aún no hay datos.</td></tr>'}</tbody></table></div>
+        <p class="nota">Aperturas del juego: ${disp.sesiones}, en móvil o tableta: ${disp.tactil}, como app instalada: ${disp.instalada}.</p>`;
+    }
+
+    cargar();
+  </script>
+</body>
+</html>
