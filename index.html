@@ -5153,11 +5153,16 @@ async function iniciar() {
   $('#defs').innerHTML = defsSvg(ui.config.cartas);
   $('#reglas-contenido').innerHTML = htmlComoJugar(ui.config);
   iniciarRed();
-  if (retomarEnCurso()) return;
+  // ?bienvenida en la dirección: enseña la bienvenida aunque ya se haya visto (para probarla o enseñársela a alguien).
+  const forzarBienvenida = /(^|[?&#])bienvenida\b/.test(location.search.slice(1) + '#' + location.hash.slice(1));
+  if (retomarEnCurso()) {
+    if (forzarBienvenida) $('#dlg-bienvenida').showModal();
+    return;
+  }
   // Sin partida elegida, la mesa espera: no se reparte ni juega nadie hasta pulsar Empezar.
   ui.enEspera = true;
   render();
-  if (bienvenidaVista()) abrirNuevaPartida();
+  if (bienvenidaVista() && !forzarBienvenida) abrirNuevaPartida();
   else $('#dlg-bienvenida').showModal();
 }
 
