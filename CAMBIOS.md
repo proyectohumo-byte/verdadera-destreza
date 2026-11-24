@@ -6,6 +6,10 @@ El juego entero está en `index.html`: ese es el archivo que se cambia.
 
 ---
 
+## Versión 20261124130000 · 24/11/2026
+
+- Las flechas de la mesa ahora van al revés que antes: salen de la carta contestada y apuntan a la respuesta.
+
 ## Versión 20261124120000 · 24/11/2026
 
 ### 1. Mesa: quién contesta a quién (ui/app.js, función `htmlPista` y `render`)
