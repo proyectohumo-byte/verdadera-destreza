@@ -6,6 +6,16 @@ El juego entero está en `index.html`: ese es el archivo que se cambia.
 
 ---
 
+## Versión 20261124150000 · 24/11/2026 · Rediseño
+
+- **Pantalla de app:** la página ya no se desplaza. Arriba, las dos vidas y dos botones (📄 crónica y ☰ menú); en medio, la mesa; abajo, tu mano, siempre en su sitio y más grande.
+- **Menú ☰:** Nueva partida, Partida de aprendizaje, Cómo jugar, Historial e idioma.
+- **La mesa se mueve por dentro:** sigue sola la jugada (la línea de combate y las filas en juego siempre a la vista). Lo viejo se aparta hacia los bordes; se puede mirar arrastrando la mesa con el dedo o el ratón, y al soltarla vuelve sola a la jugada.
+- **Crónica:** pasa a un cajón lateral que se abre con su botón. El último movimiento sale un momento en un aviso sobre la mesa.
+- **Móvil en horizontal:** ahora se puede (antes estaba bloqueado en vertical). La mano asoma por abajo y el panel del aprendizaje va en una esquina.
+- **Estilo:** títulos en letra de tratado (Cormorant Garamond) y el resto en letra limpia (Inter), sin marcos dobles ni versalitas, botones redondeados.
+- Las cartas del rival siguen giradas, como en la mesa real, para que encajen círculos, flechas y estrellas.
+
 ## Versión 20261124130000 · 24/11/2026
 
 - Las flechas de la mesa ahora van al revés que antes: salen de la carta contestada y apuntan a la respuesta.
