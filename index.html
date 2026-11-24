@@ -515,7 +515,10 @@ body.desde-derecha .celda > .num-serie { left: auto; right: -7px; }
 .enlaces .enlace.actual { stroke: var(--sangre); stroke-width: 2.5; stroke-dasharray: none; opacity: 1; }
 .enlaces .enlace.provisional { stroke: var(--oro); stroke-width: 3; opacity: 1; }
 .enlaces .enlace.resaltado { stroke: var(--sangre-claro); stroke-width: 3.5; stroke-dasharray: none; opacity: 1; }
-.enlaces .punta { stroke: none; }
+.enlaces .punta { fill: var(--tinta-suave); stroke: var(--papel-claro); stroke-width: 1.5; paint-order: stroke; stroke-linejoin: round; }
+.enlaces .punta.actual { fill: var(--sangre); }
+.enlaces .punta.provisional { fill: var(--oro); }
+.enlaces .resaltado + .punta { fill: var(--sangre-claro); }
 .celda.resaltada .carta { box-shadow: 0 0 0 3px var(--sangre-claro), 0 4px 10px #0004; }
 #registro-lista li.resaltada { background: #d2ac5c40; }
 #registro-lista li[data-serie] { cursor: default; }
@@ -525,7 +528,6 @@ body.desde-derecha .celda > .num-serie { left: auto; right: -7px; }
 .bienvenida-ideas { list-style: none; margin: 6px 0 16px; padding: 0; display: grid; gap: 10px; }
 .bienvenida-ideas li { display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: start; line-height: 1.45; font-size: 15.5px; }
 .bienvenida-ideas .n { width: 26px; height: 26px; border-radius: 50%; background: var(--sangre); color: #f7ecd6; font: 700 14px/26px var(--serif); text-align: center; }
-.bienvenida-nota { font-size: 13.5px; color: var(--tinta-suave); margin: 0 0 14px; font-style: italic; }
 #dlg-bienvenida .botones { flex-wrap: wrap; justify-content: flex-end; }
 .pista-vacia.espera p { margin: 0 0 10px; }
 .pista-vacia.espera .botones { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; font-style: normal; }
@@ -752,7 +754,6 @@ button.negativo:hover { background: linear-gradient(#7d211c, #5a1410); }
       <li><span class="n">2</span><span>Atacas con una serie: cartas tuyas en fila que se enlazan por colores y terminan hiriendo con una Estocada o una Cuchillada.</span></li>
       <li><span class="n">3</span><span>Cuando el rival ataca, puedes intervenir una de sus cartas con una serie tuya: lo que iba detrás ya no llega a hacerse. Si no intervienes, recibes la herida.</span></li>
     </ol>
-    <p class="bienvenida-nota">La partida de aprendizaje es siempre la misma y te va diciendo qué hacer en cada jugada. Dura unos cinco minutos.</p>
     <div class="botones">
       <button class="secundario" data-accion="bienvenida-reglas">Leer Cómo jugar</button>
       <button class="secundario" data-accion="bienvenida-jugar">Jugar ya</button>
@@ -2823,7 +2824,6 @@ const FRASES_PT = {
   'Gana quien deja al otro sin vida. Cada esgrimista empieza con 10 puntos.': 'Ganha quem deixa o outro sem vida. Cada esgrimista começa com 10 pontos.',
   'Atacas con una serie: cartas tuyas en fila que se enlazan por colores y terminan hiriendo con una Estocada o una Cuchillada.': 'Atacas com uma série: cartas tuas em fila que se ligam pelas cores e terminam a ferir com uma Estocada ou uma Cutilada.',
   'Cuando el rival ataca, puedes intervenir una de sus cartas con una serie tuya: lo que iba detrás ya no llega a hacerse. Si no intervienes, recibes la herida.': 'Quando o rival ataca, podes intervir uma das cartas dele com uma série tua: o que vinha a seguir já não chega a acontecer. Se não intervéns, recebes a ferida.',
-  'La partida de aprendizaje es siempre la misma y te va diciendo qué hacer en cada jugada. Dura unos cinco minutos.': 'A partida de aprendizagem é sempre a mesma e vai-te dizendo o que fazer em cada jogada. Dura uns cinco minutos.',
   'Leer Cómo jugar': 'Ler Como jogar',
   'Jugar ya': 'Jogar já',
   'Partida de aprendizaje': 'Partida de aprendizagem',
@@ -3748,15 +3748,18 @@ function dibujarEnlaces() {
     while (ocupados.some((o) => Math.abs(o.base - base) < 4 && o.carril === carril && o.y1 < y2 && y1 < o.y2)) carril++;
     ocupados.push({ base, carril, y1, y2 });
     const xg = base - t.dir * (4 + 4 * Math.min(carril, 2));
-    const fin = t.xb - t.dir;
-    t.d = `M ${t.xa} ${t.ya} L ${xg} ${t.ya} L ${xg} ${t.yb} L ${fin - t.dir * 4} ${t.yb}`;
-    t.punta = `M ${fin} ${t.yb} L ${fin - t.dir * 5} ${t.yb - 4} L ${fin - t.dir * 5} ${t.yb + 4} Z`;
+    // Punta grande que se mete un poco en la carta intervenida, y otra a media bajada que marca el sentido.
+    const pico = t.xb + t.dir * 9;
+    const cola = t.xb - t.dir * 4;
+    t.d = `M ${t.xa} ${t.ya} L ${xg} ${t.ya} L ${xg} ${t.yb} L ${cola} ${t.yb}`;
+    const sube = t.yb < t.ya ? -1 : 1;
+    const ym = (t.ya + t.yb) / 2;
+    t.punta = `M ${pico} ${t.yb} L ${cola} ${t.yb - 7} L ${cola} ${t.yb + 7} Z M ${xg} ${ym + sube * 8} L ${xg - 6} ${ym - sube * 5} L ${xg + 6} ${ym - sube * 5} Z`;
   }
   // Se pintan primero las antiguas; encima, la actual y la provisional.
   trazos.reverse();
-  const color = (c) => ({ actual: 'var(--sangre)', provisional: 'var(--oro)' })[c] ?? 'var(--tinta-suave)';
   const svg = `<svg class="enlaces" width="${filas.scrollWidth}" height="${filas.scrollHeight}" aria-hidden="true">${trazos
-    .map((t) => `<g data-enlace="${t.serie}"><path class="enlace ${t.clase}" d="${t.d}"/><path class="punta" d="${t.punta}" fill="${color(t.clase)}"/></g>`)
+    .map((t) => `<g data-enlace="${t.serie}"><path class="enlace ${t.clase}" d="${t.d}"/><path class="punta ${t.clase}" d="${t.punta}"/></g>`)
     .join('')}</svg>`;
   filas.insertAdjacentHTML('beforeend', svg);
 }
