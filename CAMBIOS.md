@@ -2,12 +2,11 @@
 
 Un solo archivo para todas las versiones: la más reciente arriba.
 Cada vez que se cambie algo, se añade aquí una entrada nueva y no se borra ninguna de las anteriores.
-
-**Importante:** los cambios marcados con ⚠️ se hicieron directamente en la página publicada (`index.html`) y aún hay que pasarlos a los archivos originales del juego. Si se vuelve a generar la página sin pasarlos, se pierden.
+El juego entero está en `index.html`: ese es el archivo que se cambia.
 
 ---
 
-## Versión 20261124120000 · 24/11/2026 ⚠️ pendiente de pasar a los archivos originales
+## Versión 20261124120000 · 24/11/2026
 
 ### 1. Mesa: quién contesta a quién (ui/app.js, función `htmlPista` y `render`)
 - Cada serie de la mesa lleva un número (1, 2, 3… por combate), el mismo que en la crónica (`registrar` guarda `n` y `serie`).
