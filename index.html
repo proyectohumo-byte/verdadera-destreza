@@ -813,8 +813,8 @@ fieldset { border-radius: 12px; border-color: #2a1f1626; }
   .cabecera { padding: 6px 10px; gap: 8px; }
   .cabecera h1 { display: none; }
   .marcador { justify-content: flex-start; gap: 6px; }
-  .vida { flex: 1; grid-template-columns: 1fr auto; padding: 3px 8px; column-gap: 6px; }
-  .vida-nombre { font-size: 15px; grid-column: 1 / -1; }
+  .vida { flex: 1; grid-template-columns: 1fr auto; padding: 5px 10px; column-gap: 6px; border-radius: 14px; }
+  .vida-nombre { font-size: 15px; grid-column: 1 / -1; line-height: 1.15; overflow-wrap: anywhere; }
   .vida-barra span { width: 6px; height: 10px; }
   .vida-num { font-size: 16px; }
   .paso { display: none; }
@@ -4933,7 +4933,7 @@ function htmlMarcador(e) {
     const v = e.vida[j];
     const max = ui.config.ajustes.vidaInicial;
     const segs = Array.from({ length: max }, (_, i) => `<span class="${i < v ? 'llena' : ''}"></span>`).join('');
-    const quien = esOrdenador(j) ? ' (ordenador)' : ui.nombres?.[j] && ui.nombres[j] !== 'Anónimo' ? ` (${escapar(ui.nombres[j])})` : ui.modo === 'ordenador' ? ' (tú)' : '';
+    const quien = esOrdenador(j) ? ` (${ui.rival?.nivel ? nivelPorId(ui.rival.nivel).nombre : 'ordenador'})` : ui.nombres?.[j] && ui.nombres[j] !== 'Anónimo' ? ` (${escapar(ui.nombres[j])})` : ui.modo === 'ordenador' ? ' (tú)' : '';
     const turno = e.turno === j && e.fase !== 'fin' && !ui.enEspera;
     return `<div class="vida ${j} ${turno ? 'activo' : ''}">
       <div class="vida-nombre">${N[j]}${quien}${turno && esOrdenador(j) && !ui.pausa ? ' <span class="pensando">pensando…</span>' : ''}</div>

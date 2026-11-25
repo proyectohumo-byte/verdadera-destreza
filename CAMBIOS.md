@@ -6,6 +6,11 @@ El juego entero está en `index.html`: ese es el archivo que se cambia.
 
 ---
 
+## 25/11/2026 · Cabecera
+
+- **Rival con su nivel:** en la cabecera pone «Negro (Preboste)», «Negro (Bisoño)», etc., en lugar de «(ordenador)» (`htmlMarcador`).
+- **Marca de turno en el móvil:** cuando el nombre ocupa dos líneas, el recuadro ya no es una pastilla redonda que corta las letras: esquinas de 14 px y algo más de margen (`.vida` y `.vida-nombre` en `@media (max-width: 700px)`).
+
 ## Versión 20261124150000 · 24/11/2026 · Rediseño
 
 - **Pantalla de app:** la página ya no se desplaza. Arriba, las dos vidas y dos botones (📄 crónica y ☰ menú); en medio, la mesa; abajo, tu mano, siempre en su sitio y más grande.
