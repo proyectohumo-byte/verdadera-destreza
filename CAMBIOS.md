@@ -6,6 +6,10 @@ El juego entero está en `index.html`: ese es el archivo que se cambia.
 
 ---
 
+## 25/11/2026 · Paso atrás a la vista
+
+- **Paso atrás:** vuelve a verse «Paso atrás: disponible / usado» en el móvil (el rediseño lo había ocultado). Va debajo de la marca de turno, fuera de ella y en gris. `htmlMarcador` envuelve cada lado en `.lado` con la `.vida` y, debajo, el `.paso`.
+
 ## Versión 20261125100000 · 25/11/2026 · Cabecera y × de quitar
 
 - **Rival con su nivel:** en la cabecera pone «Negro (Preboste)», «Negro (Bisoño)», etc., en lugar de «(ordenador)» (`htmlMarcador`).
