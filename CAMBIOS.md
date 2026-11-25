@@ -6,7 +6,7 @@ El juego entero está en `index.html`: ese es el archivo que se cambia.
 
 ---
 
-## 25/11/2026 · Partidas con todas las cartas: cuentan media
+## Versión 20261125190000 · 25/11/2026 · Partidas con todas las cartas: cuentan media
 
 - **Por qué:** con todas las cartas en la mano no hay suerte en el robo y se sabe qué tiene el rival; gana mucho más quien lee mejor el lance (simulación: Maestro contra Bisoño, 89 % con mano de 5 y 98,5 % con todas).
 - **Qué cambia:** cada partida con todas las cartas cuenta como media partida en todo: título (fuerza y categorías), Historial (P, G, Pe y %) y ranking global. Ganar con todas sigue subiendo, pero menos. Las cifras con media salen con coma (8,5).
