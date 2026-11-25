@@ -6,6 +6,13 @@ El juego entero está en `index.html`: ese es el archivo que se cambia.
 
 ---
 
+## 25/11/2026 · Partidas con todas las cartas: cuentan media
+
+- **Por qué:** con todas las cartas en la mano no hay suerte en el robo y se sabe qué tiene el rival; gana mucho más quien lee mejor el lance (simulación: Maestro contra Bisoño, 89 % con mano de 5 y 98,5 % con todas).
+- **Qué cambia:** cada partida con todas las cartas cuenta como media partida en todo: título (fuerza y categorías), Historial (P, G, Pe y %) y ranking global. Ganar con todas sigue subiendo, pero menos. Las cifras con media salen con coma (8,5).
+- Cada partida guarda ahora `mano` (5 o 'todas') en `registrarResultado`; las antiguas, sin ese dato, cuentan como de 5. `pesoPartida` y `cifraPartidas` en el bloque de ranking; `tituloEsgrimista` pondera con `w`.
+- Ranking global: se manda `p_todas` y `todas` en el histórico. En Supabase se ejecutó `servidor/mano-todas.sql` del código fuente (columna `todas`, `ranking_global` con medias).
+
 ## Versión 20261125120000 · 25/11/2026 · Paso atrás a la vista y mano entera en apaisado
 
 - **Paso atrás:** vuelve a verse «Paso atrás: disponible / usado» en el móvil (el rediseño lo había ocultado). Va debajo de la marca de turno, fuera de ella y en gris. `htmlMarcador` envuelve cada lado en `.lado` con la `.vida` y, debajo, el `.paso`.

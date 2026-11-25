@@ -2450,12 +2450,19 @@ function contarDobles(p) {
 }
 
 /** Suma a la fila `f` una partida desde el lado `lado`. Lo que la partida no trae guardado se calcula al vuelo. */
+/** Una partida con todas las cartas en la mano cuenta como media: se lee mejor el lance y es más fácil ganar. */
+const pesoPartida = (p) => (p?.mano === 'todas' ? 0.5 : 1);
+
+/** Número de partidas para mostrar: las medias, con coma (12,5). */
+const cifraPartidas = (x) => (Number.isInteger(x) ? String(x) : String(Math.round(x * 10) / 10).replace('.', ','));
+
 function sumarPartida(f, p, lado) {
   const otro = lado === 'blanco' ? 'negro' : 'blanco';
-  f.jugadas++;
-  if (p.ganador === lado) f.ganadas++;
-  else if (p.ganador === null) f.empates++;
-  else f.perdidas++;
+  const w = pesoPartida(p);
+  f.jugadas += w;
+  if (p.ganador === lado) f.ganadas += w;
+  else if (p.ganador === null) f.empates += w;
+  else f.perdidas += w;
   const d = p.dobles !== undefined ? p : contarDobles(p);
   f.dobles += d.dobles;
   f.subitas += d.subitas;
@@ -2519,7 +2526,8 @@ function calcularEnfrentamientos(partidas) {
  * busca la fuerza que mejor explica los resultados (con una expectativa previa prudente) y se toma un valor
  * pesimista (percentil 20), para que pocas partidas no den un título alto. No se sube más de 120 puntos por
  * encima del rival más fuerte retado al menos 3 veces. Además, cada categoría se gana dominando su propio
- * nivel (55 % en un mínimo de partidas que crece: 6, 9, 12, 15 y 18) y en orden.
+ * nivel (55 % en un mínimo de partidas que crece: 6, 9, 12, 15 y 18) y en orden. Una partida con todas las cartas
+ * en la mano cuenta como media (pesoPartida).
  */
 const TITULO = { previa: 0, desviacionPrevia: 200, percentil: 0.2, techoSobreRival: 120, minimoPartidas: 5, minimoPorNivel: 3, coste: [6, 9, 12, 15, 18], dominioRatio: 0.55 };
 
@@ -2553,18 +2561,20 @@ function tituloEsgrimista(nombre, partidas) {
       const rival = p[lado === 'blanco' ? 'negro' : 'blanco'];
       const f = fuerzaDeRival(rival);
       if (f === null) continue;
-      juegos.push({ f, res: p.ganador === null ? 0.5 : p.ganador === lado ? 1 : 0 });
+      const w = pesoPartida(p);
+      juegos.push({ f, w, res: p.ganador === null ? 0.5 : p.ganador === lado ? 1 : 0 });
       const n = nivelDeNombre(rival);
       if (!n) continue;
       const st = marcador.get(n.id) ?? { n: 0, g: 0 };
-      st.n++;
-      if (p.ganador === lado) st.g++;
+      st.n += w;
+      if (p.ganador === lado) st.g += w;
       marcador.set(n.id, st);
     }
   }
-  if (juegos.length < TITULO.minimoPartidas) {
-    const resto = TITULO.minimoPartidas - juegos.length;
-    return { titulo: null, partidas: juegos.length, fuerza: null, siguiente: NIVELES[0].nombre, falta: `juega ${resto} ${resto === 1 ? 'partida más' : 'partidas más'} contra el ordenador`, progreso: null };
+  const jugadas = juegos.reduce((a, g) => a + g.w, 0);
+  if (jugadas < TITULO.minimoPartidas) {
+    const resto = Math.ceil(TITULO.minimoPartidas - jugadas - 1e-9);
+    return { titulo: null, partidas: jugadas, fuerza: null, siguiente: NIVELES[0].nombre, falta: `juega ${resto} ${resto === 1 ? 'partida más' : 'partidas más'} contra el ordenador`, progreso: null };
   }
   // Fuerza estimada: rejilla bayesiana con la probabilidad de ganar tipo Elo.
   const esperado = (R, Ro) => 1 / (1 + Math.pow(10, (Ro - R) / 400));
@@ -2574,7 +2584,7 @@ function tituloEsgrimista(nombre, partidas) {
     let lp = -((R - TITULO.previa) ** 2) / (2 * TITULO.desviacionPrevia ** 2);
     for (const g of juegos) {
       const e = esperado(R, g.f);
-      lp += g.res * Math.log(e) + (1 - g.res) * Math.log(1 - e);
+      lp += g.w * (g.res * Math.log(e) + (1 - g.res) * Math.log(1 - e));
     }
     rejilla.push([R, lp]);
     if (lp > max) max = lp;
@@ -2592,7 +2602,7 @@ function tituloEsgrimista(nombre, partidas) {
     }
   }
   const porNivel = new Map();
-  for (const g of juegos) porNivel.set(g.f, (porNivel.get(g.f) ?? 0) + 1);
+  for (const g of juegos) porNivel.set(g.f, (porNivel.get(g.f) ?? 0) + g.w);
   const retados = [...porNivel].filter(([, n]) => n >= TITULO.minimoPorNivel).map(([f]) => f);
   const techo = retados.length ? Math.max(...retados) + TITULO.techoSobreRival : -Infinity;
   const fuerza = Math.min(pesimista, techo);
@@ -2605,10 +2615,10 @@ function tituloEsgrimista(nombre, partidas) {
   });
   const progreso = NIVELES.map((n, k) => {
     const st = marcador.get(n.id) ?? { n: 0, g: 0 };
-    let m = Math.max(0, TITULO.coste[k] - st.n);
+    let m = Math.max(0, Math.ceil(TITULO.coste[k] - st.n - 1e-9));
     let w = 0;
     for (; m <= 500; m++) {
-      w = Math.max(0, Math.ceil(TITULO.dominioRatio * (st.n + m) - 1e-9) - st.g);
+      w = Math.max(0, Math.ceil(TITULO.dominioRatio * (st.n + m) - st.g - 1e-9));
       if (w <= m) break;
     }
     return { nombre: n.nombre, n: st.n, g: st.g, dominado: dom[k], partidas: m, victorias: w, coste: TITULO.coste[k] };
@@ -2619,7 +2629,7 @@ function tituloEsgrimista(nombre, partidas) {
   const sinDominar = NIVELES[enOrden];
   if (sinDominar) {
     const st = marcador.get(sinDominar.id) ?? { n: 0, g: 0 };
-    const resto = TITULO.coste[enOrden] - st.n;
+    const resto = Math.ceil(TITULO.coste[enOrden] - st.n - 1e-9);
     falta = resto > 0
       ? `juega ${resto} ${resto === 1 ? 'partida más' : 'partidas más'} contra ${sinDominar.nombre}`
       : `gana con más soltura a ${sinDominar.nombre} (llevas ${Math.round((100 * st.g) / st.n)} %, hacen falta ${Math.round(100 * TITULO.dominioRatio)} %)`;
@@ -2643,7 +2653,7 @@ function tituloEsgrimista(nombre, partidas) {
   const siguiente = NIVELES[indice + 1] ?? null;
   if (siguiente && porFuerza < porRecorrido) falta = 'sigue ganando a rivales fuertes: tu nivel de juego aún no alcanza al suyo';
   else if (siguiente && indice + 1 === ultimo && enOrden < ultimo) falta = `para ser ${siguiente.nombre} tienes que combatir con todos los niveles: ${falta}`;
-  return { titulo: nivel?.nombre ?? null, partidas: juegos.length, fuerza: Math.round(media), siguiente: siguiente?.nombre ?? null, falta, progreso };
+  return { titulo: nivel?.nombre ?? null, partidas: jugadas, fuerza: Math.round(media), siguiente: siguiente?.nombre ?? null, falta, progreso };
 }
 
 /** Nivel del ordenador que corresponde al título de `nombre`: el suyo, o Bisoño si aún no tiene. */
@@ -2771,7 +2781,7 @@ function datosPartidaRed(partida) {
   const g = p.golpes ?? golpesDeCronica(p) ?? (p.vida && p.vidaInicial ? { [lado]: p.vidaInicial - p.vida[otro], [otro]: p.vidaInicial - p.vida[lado] } : { blanco: 0, negro: 0 });
   const d = p.dobles !== undefined ? p : contarDobles(p);
   const acota = (x, max) => Math.min(Math.max(Math.round(x ?? 0), 0), max);
-  return { nivel: nivel.id, gano: p.ganador === lado, dados: acota(g[lado], 200), recibidos: acota(g[otro], 200), dobles: acota(d.dobles, 100), subitas: acota(d.subitas, 50) };
+  return { nivel: nivel.id, gano: p.ganador === lado, dados: acota(g[lado], 200), recibidos: acota(g[otro], 200), dobles: acota(d.dobles, 100), subitas: acota(d.subitas, 50), todas: p.mano === 'todas' };
 }
 
 /** Envía de una vez las partidas contra el ordenador que ya había en el Historial al empezar a participar. */
@@ -2811,7 +2821,7 @@ async function partidaTerminadaRed(datos) {
     if (!d) return;
     const red = leerRed();
     const cola = leerJSON(CLAVE_RED_COLA, []);
-    cola.push({ p_cliente: red.id, p_nivel: d.nivel, p_gano: d.gano, p_dados: d.dados, p_recibidos: d.recibidos, p_dobles: d.dobles, p_subitas: d.subitas, p_duracion: Math.min(Math.max(Math.round(datos.duracion ?? 0), 0), 14400), p_version: VERSION_RED });
+    cola.push({ p_cliente: red.id, p_nivel: d.nivel, p_gano: d.gano, p_dados: d.dados, p_recibidos: d.recibidos, p_dobles: d.dobles, p_subitas: d.subitas, p_todas: d.todas, p_duracion: Math.min(Math.max(Math.round(datos.duracion ?? 0), 0), 14400), p_version: VERSION_RED });
     guardarJSON(CLAVE_RED_COLA, cola.slice(-MAX_COLA));
     await vaciarColaRed();
     await enviarTituloRed(datos.nombre);
@@ -2946,8 +2956,8 @@ async function mostrarRed(modo) {
     const filas = await llamarRed('ranking_global', {});
     const ayuda = (t, a) => `<th data-ayuda="${a}" tabindex="0">${t}</th>`;
     tabla = filas?.length
-      ? `<div class="tabla-desliza"><table class="tabla-ranking"><thead><tr><th>#</th><th>Apodo</th>${ayuda('Título', 'Título de esgrimista, calculado con sus partidas contra el ordenador')}${ayuda('P', 'Partidas contra el ordenador')}${ayuda('G', 'Partidas ganadas')}${ayuda('%', 'Porcentaje de partidas ganadas')}</tr></thead><tbody>${filas
-          .map((f, i) => `<tr><td>${i + 1}</td><td>${escaparRed(f.apodo)}</td><td>${escaparRed(NIVELES[f.titulo]?.nombre ?? '—')}</td><td>${f.partidas}</td><td>${f.ganadas}</td><td>${f.partidas ? Math.round((100 * f.ganadas) / f.partidas) : 0}</td></tr>`)
+      ? `<div class="tabla-desliza"><table class="tabla-ranking"><thead><tr><th>#</th><th>Apodo</th>${ayuda('Título', 'Título de esgrimista, calculado con sus partidas contra el ordenador')}${ayuda('P', 'Partidas contra el ordenador (con todas las cartas en la mano cuentan media)')}${ayuda('G', 'Partidas ganadas')}${ayuda('%', 'Porcentaje de partidas ganadas')}</tr></thead><tbody>${filas
+          .map((f, i) => `<tr><td>${i + 1}</td><td>${escaparRed(f.apodo)}</td><td>${escaparRed(NIVELES[f.titulo]?.nombre ?? '—')}</td><td>${cifraPartidas(Number(f.partidas))}</td><td>${cifraPartidas(Number(f.ganadas))}</td><td>${f.partidas ? Math.round((100 * f.ganadas) / f.partidas) : 0}</td></tr>`)
           .join('')}</tbody></table></div>`
       : '<p>Todavía no hay partidas en el ranking.</p>';
   } catch (err) {
@@ -4609,6 +4619,7 @@ function registrarResultado(e) {
     ganador: e.empate ? null : e.ganador,
     vida: { ...e.vida },
     vidaInicial: ui.config.ajustes.vidaInicial,
+    mano: ui.config.ajustes.tamanoMano ? ui.config.ajustes.tamanoMano : 'todas',
     golpes: golpesDeCronica({ secuencia: ui.secuencia ?? [], vidaInicial: ui.config.ajustes.vidaInicial }) ?? undefined,
     ...contarDobles({ secuencia: ui.secuencia ?? [] }),
     secuencia: ui.secuencia ?? [],
@@ -4620,11 +4631,11 @@ function registrarResultado(e) {
 /** Cabecera de columna con globo de ayuda (se ve al pasar el ratón o al pulsarla en el móvil). */
 const cabRanking = (t, ayuda) => `<th data-ayuda="${ayuda}" tabindex="0">${t}</th>`;
 const COLUMNAS_RANKING = [
-  ['P', 'Partidas jugadas'], ['G', 'Partidas ganadas'], ['Pe', 'Partidas perdidas'],
+  ['P', 'Partidas jugadas (con todas las cartas en la mano cuentan media)'], ['G', 'Partidas ganadas'], ['Pe', 'Partidas perdidas'],
   ['DT', 'Dobles tocados (Estocada contra Estocada), incluidas las muertes súbitas'], ['MS', 'Muertes súbitas: los dos a 0 a la vez y vuelven a 1'],
   ['%', 'Porcentaje de partidas ganadas'], ['Tocados', 'Puntos de herida dados / recibidos'],
 ].map(([t, a]) => cabRanking(t, a)).join('');
-const celdasRanking = (f) => `<td>${f.jugadas}</td><td>${f.ganadas}</td><td>${f.perdidas}</td><td>${f.dobles}</td><td>${f.subitas}</td><td>${f.porcentaje}</td><td>${f.puntosDados} / ${f.puntosRecibidos}</td>`;
+const celdasRanking = (f) => `<td>${cifraPartidas(f.jugadas)}</td><td>${cifraPartidas(f.ganadas)}</td><td>${cifraPartidas(f.perdidas)}</td><td>${f.dobles}</td><td>${f.subitas}</td><td>${f.porcentaje}</td><td>${f.puntosDados} / ${f.puntosRecibidos}</td>`;
 
 function htmlEnfrentamientos(partidas) {
   const lista = calcularEnfrentamientos(partidas);
@@ -4647,11 +4658,11 @@ function htmlTitulos(partidas) {
             .map((x) => {
               const pct = x.n ? Math.round((100 * x.g) / x.n) : 0;
               const resto = `te ${x.partidas === 1 ? 'queda' : 'quedan'} ${x.partidas} ${x.partidas === 1 ? 'partida' : 'partidas'}, ganando al menos ${x.victorias}`;
-              return `<li class="${x.dominado ? 'hecho' : ''}">${x.dominado ? '✓' : '·'} ${escapar(x.nombre)}: ${x.dominado ? `dominado (${x.g} de ${x.n}, ${pct} %)` : `${x.n} de ${x.coste} partidas${x.n ? `, ${pct} %` : ''}: ${resto}`}</li>`;
+              return `<li class="${x.dominado ? 'hecho' : ''}">${x.dominado ? '✓' : '·'} ${escapar(x.nombre)}: ${x.dominado ? `dominado (${cifraPartidas(x.g)} de ${cifraPartidas(x.n)}, ${pct} %)` : `${cifraPartidas(x.n)} de ${x.coste} partidas${x.n ? `, ${pct} %` : ''}: ${resto}`}</li>`;
             })
-            .join('')}</ul><p class="nota-titulo">Cada categoría se gana venciendo a su propio nivel con soltura, y en orden. Saltarte niveles cuesta mucho más. Mide cómo juegas, no cuántas partidas llevas.</p></details>`
+            .join('')}</ul><p class="nota-titulo">Cada categoría se gana venciendo a su propio nivel con soltura, y en orden. Saltarte niveles cuesta mucho más. Mide cómo juegas, no cuántas partidas llevas. Las partidas con todas las cartas en la mano cuentan media.</p></details>`
         : '';
-      return `<li><span class="titulo-nombre">${escapar(n)}</span> ${texto} <span class="titulo-detalle">(${t.partidas} ${t.partidas === 1 ? 'partida' : 'partidas'} contra el ordenador)</span><div class="titulo-falta">${escapar(nota)}</div>${progreso}</li>`;
+      return `<li><span class="titulo-nombre">${escapar(n)}</span> ${texto} <span class="titulo-detalle">(${cifraPartidas(t.partidas)} ${t.partidas === 1 ? 'partida' : 'partidas'} contra el ordenador)</span><div class="titulo-falta">${escapar(nota)}</div>${progreso}</li>`;
     });
   if (!filas.length) return '';
   return `<div class="bloque-titulos"><h3>Título de esgrimista</h3><ul>${filas.join('')}</ul></div>`;
