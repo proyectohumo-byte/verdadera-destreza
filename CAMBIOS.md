@@ -10,6 +10,7 @@ El juego entero está en `index.html`: ese es el archivo que se cambia.
 
 - **Rival con su nivel:** en la cabecera pone «Negro (Preboste)», «Negro (Bisoño)», etc., en lugar de «(ordenador)» (`htmlMarcador`).
 - **Marca de turno en el móvil:** cuando el nombre ocupa dos líneas, el recuadro ya no es una pastilla redonda que corta las letras: esquinas de 14 px y algo más de margen (`.vida` y `.vida-nombre` en `@media (max-width: 700px)`).
+- **× de quitar:** las cartas de tu mano que ya están en la serie llevan una × encima, para que se vea que al tocarlas se quitan (con las que van detrás). `htmlZona` añade `<span class="quitar-x">` y CSS `.quitar-x`.
 
 ## Versión 20261124150000 · 24/11/2026 · Rediseño
 
