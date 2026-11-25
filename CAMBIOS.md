@@ -11,6 +11,7 @@ El juego entero está en `index.html`: ese es el archivo que se cambia.
 - **Por qué:** con todas las cartas en la mano no hay suerte en el robo y se sabe qué tiene el rival; gana mucho más quien lee mejor el lance (simulación: Maestro contra Bisoño, 89 % con mano de 5 y 98,5 % con todas).
 - **Qué cambia:** cada partida con todas las cartas cuenta como media partida en todo: título (fuerza y categorías), Historial (P, G, Pe y %) y ranking global. Ganar con todas sigue subiendo, pero menos. Las cifras con media salen con coma (8,5).
 - Cada partida guarda ahora `mano` (5 o 'todas') en `registrarResultado`; las antiguas, sin ese dato, cuentan como de 5. `pesoPartida` y `cifraPartidas` en el bloque de ranking; `tituloEsgrimista` pondera con `w`.
+- **Panel del autor (autor.html):** cada jugador muestra sus partidas y su % con 5 cartas y con todas (en naranja si juega sobre todo con todas, desde 5 partidas); cada nivel, una línea más para las de todas; la columna «Mano» en las últimas partidas; y el % de partidas con todas en el resumen. `panel_autor` en Supabase actualizado.
 - Ranking global: se manda `p_todas` y `todas` en el histórico. En Supabase se ejecutó `servidor/mano-todas.sql` del código fuente (columna `todas`, `ranking_global` con medias).
 
 ## Versión 20261125120000 · 25/11/2026 · Paso atrás a la vista y mano entera en apaisado

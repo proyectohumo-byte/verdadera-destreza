@@ -37,6 +37,10 @@
     th, td { padding: 7px 8px; border-bottom: 1px solid var(--linea); text-align: left; white-space: nowrap; }
     th { font-weight: normal; font-variant: small-caps; color: var(--sangre); }
     td.num, th.num { text-align: right; }
+    td.aviso { color: #9a3412; font-weight: 700; }
+    .linea-nivel.todas { margin-top: -2px; font-size: 12.5px; color: #6b5a44; }
+    .linea-nivel.todas span:first-child { padding-left: 10px; }
+    .linea-nivel.todas .pista i { opacity: 0.55; }
     .linea-nivel { display: grid; grid-template-columns: 90px 1fr 90px; gap: 8px; align-items: center; margin: 6px 0; font-size: 14px; }
     .pista { height: 14px; background: #2a1f1614; border-radius: 3px; overflow: hidden; }
     .pista i { display: block; height: 100%; background: var(--verde); }
@@ -160,29 +164,33 @@
     function pintar(d) {
       const R = d.resumen;
       const cifra = (n, t) => `<div class="cifra"><b>${n}</b><span>${t}</span></div>`;
+      // Partidas y % ganado; con todas las cartas en la mano se gana más fácil, por eso van aparte.
+      const pg = (n, g) => (n ? `${n} · ${Math.round((100 * g) / n)} %` : '—');
+      const muchasTodas = (x) => (x.pt ?? 0) >= 5 && (x.pt ?? 0) > (x.p5 ?? 0);
       // Partidas por día: los últimos 30 días, también los que no hubo ninguna.
       const porDia = new Map(d.por_dia.map((x) => [x.dia, x]));
       const dias = Array.from({ length: 30 }, (_, i) => { const f = new Date(); f.setDate(f.getDate() - 29 + i); return f.toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' }); });
       const max = Math.max(1, ...d.por_dia.map((x) => x.partidas));
       const barras = dias.map((dia) => { const x = porDia.get(dia); const n = x?.partidas ?? 0; return `<div class="barra" title="${fechaCorta(dia)}: ${n} partidas, ${x?.jugadores ?? 0} jugadores">${n ? `<small>${n}</small>` : ''}<i style="height:${Math.round((130 * n) / max)}px"></i></div>`; }).join('');
-      const jugadores = d.jugadores.map((j) => `<tr><td>${esc(j.apodo)}</td><td>${esc(NIVELES[j.titulo] ?? '—')}</td><td>${haceCuanto(j.ultima_vez)}</td><td class="num">${j.partidas}</td><td class="num">${j.partidas ? Math.round((100 * j.ganadas) / j.partidas) : 0} %</td><td class="num">${j.minutos}</td><td class="num">${j.visitas}</td><td>${fechaCorta(j.primera_vez)}</td></tr>`).join('');
-      const niveles = d.por_nivel.map((n) => `<div class="linea-nivel"><span>${NIVEL_ID[n.nivel] ?? esc(n.nivel)}</span><div class="pista" title="Los jugadores ganan el ${Math.round((100 * n.ganadas) / n.partidas)} %"><i style="width:${(100 * n.ganadas) / n.partidas}%"></i></div><span>${n.partidas} · ${Math.round((100 * n.ganadas) / n.partidas)} %</span></div>`).join('') || '<p class="nota">Aún no hay partidas.</p>';
+      const jugadores = d.jugadores.map((j) => `<tr><td>${esc(j.apodo)}</td><td>${esc(NIVELES[j.titulo] ?? '—')}</td><td class="num">${pg(j.p5 ?? j.partidas, j.g5 ?? j.ganadas)}</td><td class="num${muchasTodas(j) ? ' aviso' : ''}" ${muchasTodas(j) ? 'title="Juega sobre todo con todas las cartas en la mano"' : ''}>${pg(j.pt ?? 0, j.gt ?? 0)}</td><td>${haceCuanto(j.ultima_vez)}</td><td class="num">${j.minutos}</td><td class="num">${j.visitas}</td><td>${fechaCorta(j.primera_vez)}</td></tr>`).join('');
+      const lineaNivel = (nombre, n, g, clase) => `<div class="linea-nivel ${clase}"><span>${nombre}</span><div class="pista" title="Los jugadores ganan el ${Math.round((100 * g) / n)} %"><i style="width:${(100 * g) / n}%"></i></div><span>${pg(n, g)}</span></div>`;
+      const niveles = d.por_nivel.map((n) => (n.p5 ?? n.partidas ? lineaNivel(NIVEL_ID[n.nivel] ?? esc(n.nivel), n.p5 ?? n.partidas, n.g5 ?? n.ganadas, '') : '') + (n.pt ? lineaNivel('con todas', n.pt, n.gt, 'todas') : '')).join('') || '<p class="nota">Aún no hay partidas.</p>';
       const uso = d.uso.map((u) => `<tr><td>${esc(ACCIONES[u.accion] ?? u.accion)}</td><td class="num">${u.veces}</td><td class="num">${u.jugadores}</td></tr>`).join('');
       const disp = d.dispositivos;
-      const ultimas = d.ultimas.map((p) => `<tr><td>${horaCorta(p.creada)}</td><td>${esc(p.apodo)}</td><td>${NIVEL_ID[p.nivel] ?? esc(p.nivel)}</td><td class="${p.gano ? 'ok' : 'ko'}">${p.gano ? 'Gana' : 'Pierde'}</td><td class="num">${p.dados} / ${p.recibidos}</td><td class="num">${Math.round(p.duracion / 60)} min</td></tr>`).join('');
+      const ultimas = d.ultimas.map((p) => `<tr><td>${horaCorta(p.creada)}</td><td>${esc(p.apodo)}</td><td>${NIVEL_ID[p.nivel] ?? esc(p.nivel)}</td><td class="${p.gano ? 'ok' : 'ko'}">${p.gano ? 'Gana' : 'Pierde'}</td><td>${p.todas ? 'Todas' : '5'}</td><td class="num">${p.dados} / ${p.recibidos}</td><td class="num">${Math.round(p.duracion / 60)} min</td></tr>`).join('');
       $('#contenido').innerHTML = `
         <div class="cifras">
           ${cifra(R.conectados, 'jugando ahora')}${cifra(R.jugadores_hoy, 'jugadores hoy')}${cifra(R.jugadores_7d, 'jugadores en 7 días')}${cifra(R.jugadores, 'jugadores en total')}
-          ${cifra(R.partidas_hoy, 'partidas hoy')}${cifra(R.partidas_7d, 'partidas en 7 días')}${cifra(R.partidas, 'partidas en total')}${cifra(R.minutos, 'minutos con el juego abierto')}
+          ${cifra(R.partidas_hoy, 'partidas hoy')}${cifra(R.partidas_7d, 'partidas en 7 días')}${cifra(R.partidas, 'partidas en total')}${cifra(`${R.partidas ? Math.round((100 * (R.partidas_todas ?? 0)) / R.partidas) : 0} %`, 'partidas con todas las cartas')}${cifra(R.minutos, 'minutos con el juego abierto')}
         </div>
         <h2>Partidas por día (último mes)</h2>
         <div class="caja"><div class="barras">${barras}</div><div class="ejes"><span>${fechaCorta(dias[0])}</span><span>hoy</span></div></div>
         <h2>Jugadores</h2>
-        <div class="tabla"><table><thead><tr><th>Apodo</th><th>Título</th><th>Última vez</th><th class="num">Partidas</th><th class="num">Gana</th><th class="num">Minutos</th><th class="num">Visitas</th><th>Desde</th></tr></thead><tbody>${jugadores || '<tr><td colspan="8">Aún no hay jugadores.</td></tr>'}</tbody></table></div>
+        <div class="tabla"><table><thead><tr><th>Apodo</th><th>Título</th><th class="num">Con 5 cartas</th><th class="num">Con todas</th><th>Última vez</th><th class="num">Minutos</th><th class="num">Visitas</th><th>Desde</th></tr></thead><tbody>${jugadores || '<tr><td colspan="8">Aún no hay jugadores.</td></tr>'}</tbody></table></div>
         <h2>Partidas contra cada nivel</h2>
-        <div class="caja"><p class="nota" style="margin-top:0">La barra verde es la parte que ganan los jugadores.</p>${niveles}</div>
+        <div class="caja"><p class="nota" style="margin-top:0">La barra verde es la parte que ganan los jugadores. Debajo de cada nivel, en otra línea, las partidas con todas las cartas en la mano.</p>${niveles}</div>
         <h2>Últimas partidas</h2>
-        <div class="tabla"><table><thead><tr><th>Cuándo</th><th>Apodo</th><th>Rival</th><th>Resultado</th><th class="num">Tocados</th><th class="num">Duración</th></tr></thead><tbody>${ultimas || '<tr><td colspan="6">Aún no hay partidas.</td></tr>'}</tbody></table></div>
+        <div class="tabla"><table><thead><tr><th>Cuándo</th><th>Apodo</th><th>Rival</th><th>Resultado</th><th>Mano</th><th class="num">Tocados</th><th class="num">Duración</th></tr></thead><tbody>${ultimas || '<tr><td colspan="7">Aún no hay partidas.</td></tr>'}</tbody></table></div>
         <h2>Qué se usa del juego</h2>
         <div class="tabla"><table><thead><tr><th>Botón</th><th class="num">Veces</th><th class="num">Jugadores</th></tr></thead><tbody>${uso || '<tr><td colspan="3">Aún no hay datos.</td></tr>'}</tbody></table></div>
         <p class="nota">Aperturas del juego: ${disp.sesiones}, en móvil o tableta: ${disp.tactil}, como app instalada: ${disp.instalada}.</p>`;
