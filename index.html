@@ -830,7 +830,7 @@ fieldset { border-radius: 12px; border-color: #2a1f1626; }
 }
 /* ---------- Móvil en apaisado (pantalla baja) ---------- */
 @media (max-height: 520px) {
-  :root { --w: clamp(52px, calc((100dvh - 150px) / 1.6), 76px); }
+  :root { --w: clamp(48px, calc((100dvh - 150px) / 2.4), 76px); }
   .cabecera { padding: 3px 12px; }
   .cabecera h1 { display: none; }
   .vida { grid-template-columns: auto auto auto; padding: 2px 10px; }
@@ -840,8 +840,8 @@ fieldset { border-radius: 12px; border-color: #2a1f1626; }
   .zona-arriba:has(.mano-oculta) { display: none; }
   .tablero { gap: 2px; padding-top: 2px; }
   .pista { --wp: 44px; padding: 4px; }
-  /* La mano asoma por abajo: se ve la parte de arriba de cada carta */
-  .zona-abajo { margin-bottom: calc(var(--w) * -0.42); padding-bottom: 0; }
+  /* La mano entera a la vista, pegada al borde de abajo */
+  .zona-abajo { margin-bottom: 0; padding-bottom: 4px; }
   .zona-abajo .mano-cartas { padding-top: 14px; }
   .centro.tutor { position: absolute; right: 10px; top: 4px; z-index: 8; max-width: min(380px, 46%); padding: 6px 10px; background: #faf5eaf2; }
   .centro.tutor .tutor-texto.con-orden { display: none; }
